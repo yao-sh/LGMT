@@ -1,9 +1,8 @@
 from dataclasses import dataclass
+from random import Random
 
 from .perturbation import Perturbation
 from .perturbation_description import PerturbationDescription
-
-from random import Random
 
 # ADAPTED FROM
 # https://github.com/GEM-benchmark/NL-Augmenter/blob/main/transformations/filler_word_augmentation/transformation.py
@@ -28,7 +27,10 @@ UNCERTAIN_PHRASES = ["maybe", "perhaps", "probably", "possibly", "most likely"]
 
 # Filler words that should preserve the meaning of the phrase
 # Taken from Laserna et al. (2014)
-FILL_PHRASE = ["uhm", "umm", "ahh", "err", "actually", "obviously", "naturally", "like", "you know"]
+FILL_PHRASE = [
+    "uhm", "umm", "ahh", "err", "actually", "obviously", "naturally", "like",
+    "you know"
+]
 
 
 class FillerWordsPerturbation(Perturbation):
@@ -50,7 +52,12 @@ class FillerWordsPerturbation(Perturbation):
 
     name: str = "filler_words"
 
-    def __init__(self, insert_prob=0.333, max_num_insert=None, speaker_ph=True, uncertain_ph=True, fill_ph=True):
+    def __init__(self,
+                 insert_prob=0.333,
+                 max_num_insert=None,
+                 speaker_ph=True,
+                 uncertain_ph=True,
+                 fill_ph=True):
         self.insert_prob = insert_prob
         self.max_num_insert = max_num_insert
         self.speaker_ph = speaker_ph
@@ -59,12 +66,17 @@ class FillerWordsPerturbation(Perturbation):
 
     @property
     def description(self) -> PerturbationDescription:
-        return FillerWordsPerturbation.Description(name=self.name, robustness=True, insert_prob=self.insert_prob)
+        return FillerWordsPerturbation.Description(
+            name=self.name, robustness=True, insert_prob=self.insert_prob)
 
     @staticmethod
-    def gen_filled_text(
-        text, insert_prob: float, rng: Random, max_num_insert=1, speaker_ph=True, uncertain_ph=True, fill_ph=True
-    ):
+    def gen_filled_text(text,
+                        insert_prob: float,
+                        rng: Random,
+                        max_num_insert=1,
+                        speaker_ph=True,
+                        uncertain_ph=True,
+                        fill_ph=True):
         all_fillers = []
         if speaker_ph:
             all_fillers.extend(SPEAKER_PHRASES)
@@ -76,7 +88,8 @@ class FillerWordsPerturbation(Perturbation):
         insert_count = 0
         perturbed_words = []
         for word in text.split(" "):
-            if (max_num_insert is None or insert_count < max_num_insert) and rng.random() <= insert_prob:
+            if (max_num_insert is None or insert_count
+                    < max_num_insert) and rng.random() <= insert_prob:
                 random_filler = rng.choice(all_fillers)
                 perturbed_words.append(random_filler)
                 insert_count += 1
@@ -87,6 +100,6 @@ class FillerWordsPerturbation(Perturbation):
         return perturbed_text
 
     def perturb(self, text: str, rng: Random) -> str:
-        return self.gen_filled_text(
-            text, self.insert_prob, rng, self.max_num_insert, self.speaker_ph, self.uncertain_ph, self.fill_ph
-        )
+        return self.gen_filled_text(text, self.insert_prob, rng,
+                                    self.max_num_insert, self.speaker_ph,
+                                    self.uncertain_ph, self.fill_ph)

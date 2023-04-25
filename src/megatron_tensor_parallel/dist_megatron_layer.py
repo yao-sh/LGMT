@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 import torch.nn.init as init
 from torch.nn.parameter import Parameter
+
 from comm.comm_utils import *
 
 
@@ -16,11 +17,11 @@ class VocabParallelEmbedding(torch.nn.Module):
         init_method: method to initialize weights.
     """
 
-    def __init__(self, num_embeddings, embedding_dim,
+    def __init__(self,
+                 num_embeddings,
+                 embedding_dim,
                  init_method=init.xavier_normal_):
         super(VocabParallelEmbedding, self).__init__()
-        pass
-
 
 
 class ColumnParallelLinear(torch.nn.Module):
@@ -47,12 +48,16 @@ class ColumnParallelLinear(torch.nn.Module):
                        adding bias but instead return it.
     """
 
-    def __init__(self, input_size, output_size, bias=True, gather_output=True,
-                 init_method=init.xavier_normal_, stride=1,
+    def __init__(self,
+                 input_size,
+                 output_size,
+                 bias=True,
+                 gather_output=True,
+                 init_method=init.xavier_normal_,
+                 stride=1,
                  keep_master_weight_for_test=False,
                  skip_bias_add=False):
         super(ColumnParallelLinear, self).__init__()
-        pass
 
 
 class RowParallelLinear(torch.nn.Module):
@@ -85,10 +90,13 @@ class RowParallelLinear(torch.nn.Module):
                        adding bias but instead return it.
     """
 
-    def __init__(self, input_size, output_size, bias=True,
+    def __init__(self,
+                 input_size,
+                 output_size,
+                 bias=True,
                  input_is_parallel=False,
-                 init_method=init.xavier_normal_, stride=1,
+                 init_method=init.xavier_normal_,
+                 stride=1,
                  keep_master_weight_for_test=False,
                  skip_bias_add=False):
         super(RowParallelLinear, self).__init__()
-        pass

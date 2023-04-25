@@ -41,14 +41,20 @@ class TrainSimulate:
 
             # Exchange activations
             if is_forward:
-                if self._valid_micro_batch(micro_batch_id) and self._valid_stage(self.prev_stage):
+                if self._valid_micro_batch(
+                        micro_batch_id) and self._valid_stage(self.prev_stage):
                     cmds.append("Recv activation :" + str(curr_buffer))
-                if self._valid_micro_batch(prev_micro_batch_id) and self._valid_stage(self.prev_stage):
+                if self._valid_micro_batch(
+                        prev_micro_batch_id) and self._valid_stage(
+                            self.prev_stage):
                     cmds.append("Recv gradient :" + str(prev_buffer))
             else:
-                if self._valid_micro_batch(prev_micro_batch_id) and self._valid_stage(self.next_stage):
+                if self._valid_micro_batch(
+                        prev_micro_batch_id) and self._valid_stage(
+                            self.next_stage):
                     cmds.append("Send activation :" + str(prev_buffer))
-                if self._valid_micro_batch(micro_batch_id) and self._valid_stage(self.next_stage):
+                if self._valid_micro_batch(
+                        micro_batch_id) and self._valid_stage(self.next_stage):
                     cmds.append("Recv gradient :" + str(curr_buffer))
 
             # First/last stage loads
@@ -61,7 +67,7 @@ class TrainSimulate:
                 if is_forward:
                     cmds.append("Forward computation :" + str(curr_buffer))
                 else:
-                    cmds.append("Backward computation :" +str(curr_buffer))
+                    cmds.append("Backward computation :" + str(curr_buffer))
 
             # Model step at the end of the batch
             if step_id == total_steps - 1:
@@ -130,10 +136,17 @@ class TrainSimulate:
 
 def main():
     parser = argparse.ArgumentParser(description='1F1B - simulation')
-    parser.add_argument('--micro_batches', type=int, default=16, metavar='S',
+    parser.add_argument('--micro_batches',
+                        type=int,
+                        default=16,
+                        metavar='S',
                         help='num of micro batches (default: 16)')
-    parser.add_argument('--stages', type=int, default=4, metavar='S',
-                        help='lengths of pipeline_parallel stages (default: 4)')
+    parser.add_argument(
+        '--stages',
+        type=int,
+        default=4,
+        metavar='S',
+        help='lengths of pipeline_parallel stages (default: 4)')
     args = parser.parse_args()
     for i in range(args.stages):
         worker = TrainSimulate(args.micro_batches, args.stages, i)

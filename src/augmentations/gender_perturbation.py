@@ -1,13 +1,12 @@
-from dataclasses import dataclass
 import json
-from random import Random
 import re
+from dataclasses import dataclass
+from random import Random
 from typing import Dict, List, Optional, Tuple
 
 from . import match_case
-from .perturbation_description import PerturbationDescription
 from .perturbation import Perturbation
-
+from .perturbation_description import PerturbationDescription
 
 """ Gender term mappings """
 GENDER_TERM_MAPPINGS: List[Tuple[str, ...]] = [
@@ -47,7 +46,6 @@ GENDER_TERM_MAPPINGS: List[Tuple[str, ...]] = [
     ("human", "female", "male"),
     ("humans", "females", "males"),
 ]
-
 """ Gender pronoun mappings """
 # The overlaps between the pairs cause our replacements to be wrong in certain
 # cases (direct pronouns vs. indirect pronouns). In these cases, we keep the
@@ -64,23 +62,23 @@ GENDER_PRONOUN_MAPPINGS: List[Tuple[str, ...]] = [
 
 class GenderPerturbation(Perturbation):
     """Individual fairness perturbation for gender terms and pronouns."""
-
     """ Short unique identifier of the perturbation (e.g., extra_space) """
     name: str = "gender"
 
     should_perturb_references: bool = True
-
     """ Genders defined by default """
     NEUTRAL = "neutral"
     FEMALE = "female"
     MALE = "male"
     GENDERS = [NEUTRAL, FEMALE, MALE]
-
     """ Modes """
     GENDER_TERM = "terms"
     GENDER_PRONOUN = "pronouns"
     MODES = [GENDER_TERM, GENDER_PRONOUN]
-    MODE_TO_MAPPINGS = {GENDER_TERM: GENDER_TERM_MAPPINGS, GENDER_PRONOUN: GENDER_PRONOUN_MAPPINGS}
+    MODE_TO_MAPPINGS = {
+        GENDER_TERM: GENDER_TERM_MAPPINGS,
+        GENDER_PRONOUN: GENDER_PRONOUN_MAPPINGS
+    }
 
     @dataclass(frozen=True)
     class Description(PerturbationDescription):
@@ -159,13 +157,19 @@ class GenderPerturbation(Perturbation):
         assert all([len(m) == len(self.genders) for m in mappings])
 
         # Get source and target words
-        gender_to_ind: Dict[str, int] = {gender: ind for ind, gender in enumerate(self.genders)}
+        gender_to_ind: Dict[str, int] = {
+            gender: ind
+            for ind, gender in enumerate(self.genders)
+        }
         word_lists = list(zip(*mappings))
-        self.source_words: List[str] = list(word_lists[gender_to_ind[self.source_class]])
-        self.target_words: List[str] = list(word_lists[gender_to_ind[self.target_class]])
+        self.source_words: List[str] = list(
+            word_lists[gender_to_ind[self.source_class]])
+        self.target_words: List[str] = list(
+            word_lists[gender_to_ind[self.target_class]])
 
         # Get word_synonym_pairs
-        self.word_synonym_pairs = list(zip(self.source_words, self.target_words))
+        self.word_synonym_pairs = list(
+            zip(self.source_words, self.target_words))
 
         # If self.bidirectional flag is set, extend the pairs list
         if self.bidirectional:
@@ -192,17 +196,21 @@ class GenderPerturbation(Perturbation):
             loaded_json = json.load(f)
             return [tuple([str(e).lower() for e in t]) for t in loaded_json]
 
-    def substitute_word(self, text: str, word: str, synonym: str, rng: Random) -> str:
+    def substitute_word(self, text: str, word: str, synonym: str,
+                        rng: Random) -> str:
         """Substitute the occurences of word in text with its synonym with self.probability"""
         # Pattern capturing any occurence of given word in the text, surrounded by non-alphanumeric characters
         pattern = f"[^\\w]({word})[^\\w]"
 
         # Substitution function
         def sub_func(m: re.Match):
-            match_str = m.group(0)  # The full match (e.g. " Man ", " Man,", " Man.", "-Man.")
+            match_str = m.group(
+                0)  # The full match (e.g. " Man ", " Man,", " Man.", "-Man.")
             match_word = m.group(1)  # Captured group (e.g. "Man")
             if rng.uniform(0, 1) < self.prob:
-                syn = match_case(match_word, synonym)  # Synoynm with matching case (e.g. "Woman")
+                syn = match_case(
+                    match_word,
+                    synonym)  # Synoynm with matching case (e.g. "Woman")
                 match_str = match_str.replace(
                     match_word, syn
                 )  # Synonym placed in the matching group (e.g. " Woman ", " Woman,", " Woman.", "-Woman")

@@ -1,17 +1,17 @@
-from dataclasses import dataclass
 import json
 import os
-from random import Random
+from dataclasses import dataclass
 from pathlib import Path
+from random import Random
 from typing import Dict, List
 
 import nltk
-from nltk.corpus import wordnet
 import spacy
+from helm.common.general import ensure_file_downloaded, match_case
+from nltk.corpus import wordnet
 
-from helm.common.general import match_case, ensure_file_downloaded
-from .perturbation_description import PerturbationDescription
 from .perturbation import Perturbation
+from .perturbation_description import PerturbationDescription
 
 
 class SynonymPerturbation(Perturbation):
@@ -56,7 +56,8 @@ class SynonymPerturbation(Perturbation):
             spacy.cli.download("en_core_web_sm")  # type: ignore
             self.spacy_model = spacy.load("en_core_web_sm")
 
-        output_dir = os.path.join("benchmark_output", "perturbations", self.name)
+        output_dir = os.path.join("benchmark_output", "perturbations",
+                                  self.name)
         Path(output_dir).mkdir(parents=True, exist_ok=True)
         nltk.data.path.append(output_dir)
         try:
@@ -71,13 +72,16 @@ class SynonymPerturbation(Perturbation):
         wordnet.ensure_loaded()
 
         target_path = os.path.join(output_dir, self.FILE_NAME)
-        ensure_file_downloaded(source_url=self.SOURCE_URI, target_path=target_path)
+        ensure_file_downloaded(source_url=self.SOURCE_URI,
+                               target_path=target_path)
         with open(target_path) as f:
             self.wordnet_synonyms: Dict[str, List[str]] = json.load(f)
 
     @property
     def description(self) -> PerturbationDescription:
-        return SynonymPerturbation.Description(name=self.name, robustness=True, prob=self.prob)
+        return SynonymPerturbation.Description(name=self.name,
+                                               robustness=True,
+                                               prob=self.prob)
 
     def perturb(self, text: str, rng: Random) -> str:
         spacy_to_wordnet_pos = {
@@ -96,10 +100,13 @@ class SynonymPerturbation(Perturbation):
             wordnet_pos = spacy_to_wordnet_pos.get(token.pos_)
             synonyms = []
             if wordnet_pos:
-                for base in wordnet._morphy(word.lower(), wordnet_pos):  # _morphy returns the base form of a word
-                    synonyms.extend(self.wordnet_synonyms.get(f"{base}:{wordnet_pos}", []))
+                for base in wordnet._morphy(word.lower(
+                ), wordnet_pos):  # _morphy returns the base form of a word
+                    synonyms.extend(
+                        self.wordnet_synonyms.get(f"{base}:{wordnet_pos}", []))
             synonyms = [s for s in synonyms if s != word.lower()]
-            synonyms = list(dict.fromkeys(synonyms))  # Make the list unique while preserving the order
+            synonyms = list(dict.fromkeys(
+                synonyms))  # Make the list unique while preserving the order
             if synonyms and rng.uniform(0, 1) < self.prob:
                 synonym = rng.choice(synonyms)
                 word = match_case(word, synonym)

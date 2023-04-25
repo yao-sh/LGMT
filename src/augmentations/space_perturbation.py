@@ -1,6 +1,6 @@
+import re
 from dataclasses import dataclass
 from random import Random
-import re
 
 from .perturbation import Perturbation
 from .perturbation_description import PerturbationDescription
@@ -22,8 +22,11 @@ class SpacePerturbation(Perturbation):
 
     @property
     def description(self) -> PerturbationDescription:
-        return SpacePerturbation.Description(name=self.name, robustness=True, max_spaces=self.max_spaces)
+        return SpacePerturbation.Description(name=self.name,
+                                             robustness=True,
+                                             max_spaces=self.max_spaces)
 
     def perturb(self, text: str, rng: Random) -> str:
         # Replace each space with a random number of spaces
-        return re.sub(r" +", lambda x: " " * rng.randint(1, self.max_spaces), text)
+        return re.sub(r" +", lambda x: " " * rng.randint(1, self.max_spaces),
+                      text)

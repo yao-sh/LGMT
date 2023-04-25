@@ -2,6 +2,7 @@ import torch
 
 
 class GlueClassification(torch.nn.Module):
+
     def __init__(self, model_dim, num_classes):
         super(GlueClassification, self).__init__()
         self.model_dim = model_dim

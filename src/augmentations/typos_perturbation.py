@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from random import Random
 
-from .perturbation_description import PerturbationDescription
 from .perturbation import Perturbation
+from .perturbation_description import PerturbationDescription
 
 
 class TyposPerturbation(Perturbation):
@@ -34,7 +34,9 @@ class TyposPerturbation(Perturbation):
 
     @property
     def description(self) -> PerturbationDescription:
-        return TyposPerturbation.Description(name=self.name, robustness=True, prob=self.prob)
+        return TyposPerturbation.Description(name=self.name,
+                                             robustness=True,
+                                             prob=self.prob)
 
     def perturb(self, text: str, rng: Random) -> str:
         key_approx = {}

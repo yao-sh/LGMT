@@ -44,7 +44,6 @@ logger = logging.get_logger(__name__)
 _CHECKPOINT_FOR_DOC = "llama-7b"
 _CONFIG_FOR_DOC = "LLaMAConfig"
 
-
 import os
 from shutil import copyfile
 from typing import Any, Dict, List, Optional, Tuple
@@ -58,7 +57,6 @@ logger = logging.get_logger(__name__)
 VOCAB_FILES_NAMES = {"vocab_file": "tokenizer.model"}
 
 PRETRAINED_VOCAB_FILES_MAP = {}
-
 
 
 class LLaMATokenizer(PreTrainedTokenizer):
@@ -87,7 +85,10 @@ class LLaMATokenizer(PreTrainedTokenizer):
     ):
         """Initialisation"""
         self.sp_model_kwargs = {} if sp_model_kwargs is None else sp_model_kwargs
-        super().__init__(bos_token=bos_token, eos_token=eos_token, unk_token=unk_token, **kwargs)
+        super().__init__(bos_token=bos_token,
+                         eos_token=eos_token,
+                         unk_token=unk_token,
+                         **kwargs)
         self.vocab_file = vocab_file
         self.add_bos_token = add_bos_token
         self.add_eos_token = add_eos_token
@@ -100,7 +101,10 @@ class LLaMATokenizer(PreTrainedTokenizer):
     def no_prefix_space_tokens(self):
         if self._no_prefix_space_tokens is None:
             vocab = self.convert_ids_to_tokens(list(range(self.vocab_size)))
-            self._no_prefix_space_tokens = {i for i, tok in enumerate(vocab) if not tok.startswith("▁")}
+            self._no_prefix_space_tokens = {
+                i
+                for i, tok in enumerate(vocab) if not tok.startswith("▁")
+            }
         return self._no_prefix_space_tokens
 
     @property
@@ -118,7 +122,10 @@ class LLaMATokenizer(PreTrainedTokenizer):
 
     def get_vocab(self):
         """Returns vocab as a dict"""
-        vocab = {self.convert_ids_to_tokens(i): i for i in range(self.vocab_size)}
+        vocab = {
+            self.convert_ids_to_tokens(i): i
+            for i in range(self.vocab_size)
+        }
         vocab.update(self.added_tokens_encoder)
         return vocab
 
@@ -161,7 +168,9 @@ class LLaMATokenizer(PreTrainedTokenizer):
         #out_string = self._maybe_add_prefix_space(tokens=tokens, decoded=out_string)
         return out_string
 
-    def save_vocabulary(self, save_directory, filename_prefix: Optional[str] = None) -> Tuple[str]:
+    def save_vocabulary(self,
+                        save_directory,
+                        filename_prefix: Optional[str] = None) -> Tuple[str]:
         """
         Save the vocabulary and special tokens file to a directory.
         Args:
@@ -171,20 +180,23 @@ class LLaMATokenizer(PreTrainedTokenizer):
             `Tuple(str)`: Paths to the files saved.
         """
         if not os.path.isdir(save_directory):
-            logger.error(f"Vocabulary path ({save_directory}) should be a directory")
+            logger.error(
+                f"Vocabulary path ({save_directory}) should be a directory")
             return
         out_vocab_file = os.path.join(
-            save_directory, (filename_prefix + "-" if filename_prefix else "") + VOCAB_FILES_NAMES["vocab_file"]
-        )
+            save_directory,
+            (filename_prefix + "-" if filename_prefix else "") +
+            VOCAB_FILES_NAMES["vocab_file"])
 
-        if os.path.abspath(self.vocab_file) != os.path.abspath(out_vocab_file) and os.path.isfile(self.vocab_file):
+        if os.path.abspath(self.vocab_file) != os.path.abspath(
+                out_vocab_file) and os.path.isfile(self.vocab_file):
             copyfile(self.vocab_file, out_vocab_file)
         elif not os.path.isfile(self.vocab_file):
             with open(out_vocab_file, "wb") as fi:
                 content_spiece_model = self.sp_model.serialized_model_proto()
                 fi.write(content_spiece_model)
 
-        return (out_vocab_file,)
+        return (out_vocab_file, )
 
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
         if self.add_bos_token:
@@ -230,8 +242,9 @@ class LLaMATokenizer(PreTrainedTokenizer):
     #     return [1] + ([0] * len(token_ids_0)) + [1, 1] + ([0] * len(token_ids_1)) + [1]
 
     def create_token_type_ids_from_sequences(
-        self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None
-    ) -> List[int]:
+            self,
+            token_ids_0: List[int],
+            token_ids_1: Optional[List[int]] = None) -> List[int]:
         """
         Create a mask from the two sequences passed to be used in a sequence-pair classification task. T5 does not make
         use of token type ids, therefore a list of zeros is returned.
@@ -335,7 +348,9 @@ class LLaMAConfig(PretrainedConfig):
         )
 
 
-def _make_causal_mask(input_ids_shape: torch.Size, dtype: torch.dtype, past_key_values_length: int = 0):
+def _make_causal_mask(input_ids_shape: torch.Size,
+                      dtype: torch.dtype,
+                      past_key_values_length: int = 0):
     """
     Make causal mask used for bi-directional self-attention.
     """
@@ -346,70 +361,84 @@ def _make_causal_mask(input_ids_shape: torch.Size, dtype: torch.dtype, past_key_
     mask = mask.to(dtype)
 
     if past_key_values_length > 0:
-        mask = torch.cat([torch.zeros(tgt_len, past_key_values_length, dtype=dtype), mask], dim=-1)
-    return mask[None, None, :, :].expand(bsz, 1, tgt_len, tgt_len + past_key_values_length)
+        mask = torch.cat(
+            [torch.zeros(tgt_len, past_key_values_length, dtype=dtype), mask],
+            dim=-1)
+    return mask[None, None, :, :].expand(bsz, 1, tgt_len,
+                                         tgt_len + past_key_values_length)
 
-def _make_causal_mask_device(
-    input_ids_shape: torch.Size, 
-    dtype: torch.dtype,
-    device: torch.device,
-    past_key_values_length: int = 0
-):
+
+def _make_causal_mask_device(input_ids_shape: torch.Size,
+                             dtype: torch.dtype,
+                             device: torch.device,
+                             past_key_values_length: int = 0):
     """
     Make causal mask used for bi-directional self-attention.
     """
     bsz, tgt_len = input_ids_shape
-    mask = torch.full((tgt_len, tgt_len), torch.tensor(float("-inf")), device=device)
+    mask = torch.full((tgt_len, tgt_len),
+                      torch.tensor(float("-inf")),
+                      device=device)
     mask_cond = torch.arange(mask.size(-1), device=device)
     mask.masked_fill_(mask_cond < (mask_cond + 1).view(mask.size(-1), 1), 0)
     mask = mask.to(dtype)
 
     if past_key_values_length > 0:
-        mask = torch.cat(
-            [torch.zeros(tgt_len, past_key_values_length, dtype=dtype, device=device), 
-             mask], dim=-1
-        )
-    return mask[None, None, :, :].expand(bsz, 1, tgt_len, tgt_len + past_key_values_length)
+        mask = torch.cat([
+            torch.zeros(
+                tgt_len, past_key_values_length, dtype=dtype, device=device),
+            mask
+        ],
+                         dim=-1)
+    return mask[None, None, :, :].expand(bsz, 1, tgt_len,
+                                         tgt_len + past_key_values_length)
 
 
-def _expand_mask(mask: torch.Tensor, dtype: torch.dtype, tgt_len: Optional[int] = None):
+def _expand_mask(mask: torch.Tensor,
+                 dtype: torch.dtype,
+                 tgt_len: Optional[int] = None):
     """
     Expands attention_mask from `[bsz, seq_len]` to `[bsz, 1, tgt_seq_len, src_seq_len]`.
     """
     bsz, src_len = mask.size()
     tgt_len = tgt_len if tgt_len is not None else src_len
 
-    expanded_mask = mask[:, None, None, :].expand(bsz, 1, tgt_len, src_len).to(dtype)
+    expanded_mask = mask[:, None, None, :].expand(bsz, 1, tgt_len,
+                                                  src_len).to(dtype)
 
     inverted_mask = 1.0 - expanded_mask
 
-    return inverted_mask.masked_fill(inverted_mask.to(torch.bool), torch.finfo(dtype).min)
+    return inverted_mask.masked_fill(inverted_mask.to(torch.bool),
+                                     torch.finfo(dtype).min)
 
 
-
-
-def _prepare_decoder_attention_mask(attention_mask, input_shape, inputs_embeds, past_key_values_length):
+def _prepare_decoder_attention_mask(attention_mask, input_shape, inputs_embeds,
+                                    past_key_values_length):
     # create causal mask
     # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
     combined_attention_mask = None
     if input_shape[-1] > 1:
         combined_attention_mask = _make_causal_mask_device(
-            input_shape, inputs_embeds.dtype, inputs_embeds.device,
-            past_key_values_length=past_key_values_length
-        )
+            input_shape,
+            inputs_embeds.dtype,
+            inputs_embeds.device,
+            past_key_values_length=past_key_values_length)
 
     if attention_mask is not None:
         # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
-        expanded_attn_mask = _expand_mask(
-            attention_mask, inputs_embeds.dtype,tgt_len=input_shape[-1])
-        combined_attention_mask = (
-            expanded_attn_mask if combined_attention_mask is None else expanded_attn_mask + combined_attention_mask
-        )
+        expanded_attn_mask = _expand_mask(attention_mask,
+                                          inputs_embeds.dtype,
+                                          tgt_len=input_shape[-1])
+        combined_attention_mask = (expanded_attn_mask
+                                   if combined_attention_mask is None else
+                                   expanded_attn_mask +
+                                   combined_attention_mask)
 
     return combined_attention_mask
 
 
 class RMSNorm(nn.Module):
+
     def __init__(self, hidden_size, eps=1e-6):
         """
         RMSNorm is equivalent to T5LayerNorm
@@ -419,8 +448,10 @@ class RMSNorm(nn.Module):
         self.variance_epsilon = eps
 
     def forward(self, hidden_states):
-        variance = hidden_states.to(torch.float32).pow(2).mean(-1, keepdim=True)
-        hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
+        variance = hidden_states.to(torch.float32).pow(2).mean(-1,
+                                                               keepdim=True)
+        hidden_states = hidden_states * torch.rsqrt(variance +
+                                                    self.variance_epsilon)
 
         # convert into half-precision if necessary
         if self.weight.dtype in [torch.float16, torch.bfloat16]:
@@ -430,14 +461,22 @@ class RMSNorm(nn.Module):
 
 
 class RotaryEmbedding(torch.nn.Module):
-    def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None):
+
+    def __init__(self,
+                 dim,
+                 max_position_embeddings=2048,
+                 base=10000,
+                 device=None):
         super().__init__()
-        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float().to(device) / dim))
+        inv_freq = 1.0 / (base
+                          **(torch.arange(0, dim, 2).float().to(device) / dim))
         self.register_buffer("inv_freq", inv_freq)
 
         # Build here to make `torch.jit.trace` work.
         self.max_seq_len_cached = max_position_embeddings
-        t = torch.arange(self.max_seq_len_cached, device=self.inv_freq.device, dtype=self.inv_freq.dtype)
+        t = torch.arange(self.max_seq_len_cached,
+                         device=self.inv_freq.device,
+                         dtype=self.inv_freq.dtype)
         freqs = torch.einsum("i,j->ij", t, self.inv_freq)
         # Different from paper, but it uses a different permutation in order to obtain the same calculation
         emb = torch.cat((freqs, freqs), dim=-1)
@@ -449,34 +488,39 @@ class RotaryEmbedding(torch.nn.Module):
         # This `if` block is unlikely to be run after we build sin/cos in `__init__`. Keep the logic here just in case.
         if seq_len > self.max_seq_len_cached:
             self.max_seq_len_cached = seq_len
-            t = torch.arange(self.max_seq_len_cached, device=x.device, dtype=self.inv_freq.dtype)
+            t = torch.arange(self.max_seq_len_cached,
+                             device=x.device,
+                             dtype=self.inv_freq.dtype)
             freqs = torch.einsum("i,j->ij", t, self.inv_freq)
             # Different from paper, but it uses a different permutation in order to obtain the same calculation
             emb = torch.cat((freqs, freqs), dim=-1).to(x.device)
             self.cos_cached = emb.cos()[None, None, :, :].to(dtype=x.dtype)
             self.sin_cached = emb.sin()[None, None, :, :].to(dtype=x.dtype)
         return (
-            self.cos_cached[:, :, :seq_len, ...].to(dtype=x.dtype, device=x.device),
-            self.sin_cached[:, :, :seq_len, ...].to(dtype=x.dtype, device=x.device),
+            self.cos_cached[:, :, :seq_len, ...].to(dtype=x.dtype,
+                                                    device=x.device),
+            self.sin_cached[:, :, :seq_len, ...].to(dtype=x.dtype,
+                                                    device=x.device),
         )
 
 
 def rotate_half(x):
     """Rotates half the hidden dims of the input."""
-    x1 = x[..., : x.shape[-1] // 2]
-    x2 = x[..., x.shape[-1] // 2 :]
+    x1 = x[..., :x.shape[-1] // 2]
+    x2 = x[..., x.shape[-1] // 2:]
     return torch.cat((-x2, x1), dim=-1)
 
 
 def apply_rotary_pos_emb(q, k, cos, sin, offset: int = 0):
-    cos = cos[..., offset : q.shape[-2] + offset, :]
-    sin = sin[..., offset : q.shape[-2] + offset, :]
+    cos = cos[..., offset:q.shape[-2] + offset, :]
+    sin = sin[..., offset:q.shape[-2] + offset, :]
     q_embed = (q * cos) + (rotate_half(q) * sin)
     k_embed = (k * cos) + (rotate_half(k) * sin)
     return q_embed, k_embed
 
 
 class LLaMAMLP(nn.Module):
+
     def __init__(
         self,
         hidden_size: int,
@@ -509,8 +553,7 @@ class LLaMAAttention(nn.Module):
         if (self.head_dim * num_heads) != self.hidden_size:
             raise ValueError(
                 f"hidden_size must be divisible by num_heads (got `hidden_size`: {self.hidden_size}"
-                f" and `num_heads`: {num_heads})."
-            )
+                f" and `num_heads`: {num_heads}).")
         self.q_proj = nn.Linear(
             hidden_size,
             num_heads * self.head_dim,
@@ -534,7 +577,8 @@ class LLaMAAttention(nn.Module):
         self.rotary_emb = RotaryEmbedding(self.head_dim)
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
-        return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
+        return tensor.view(bsz, seq_len, self.num_heads,
+                           self.head_dim).transpose(1, 2).contiguous()
 
     def forward(
         self,
@@ -542,14 +586,18 @@ class LLaMAAttention(nn.Module):
         past_key_value: Optional[Tuple[torch.Tensor]] = None,
         attention_mask: Optional[torch.Tensor] = None,
         output_attentions: bool = False,
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor],
+               Optional[Tuple[torch.Tensor]]]:
         """Input shape: Batch x Time x Channel"""
 
         bsz, q_len, _ = hidden_states.size()
 
-        query_states = self.q_proj(hidden_states).view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-        key_states = self.k_proj(hidden_states).view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-        value_states = self.v_proj(hidden_states).view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
+        query_states = self.q_proj(hidden_states).view(
+            bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
+        key_states = self.k_proj(hidden_states).view(
+            bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
+        value_states = self.v_proj(hidden_states).view(
+            bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
 
         kv_seq_len = key_states.shape[-2]
         offset = 0
@@ -557,7 +605,11 @@ class LLaMAAttention(nn.Module):
             offset = past_key_value[0].shape[-2]
             kv_seq_len += offset
         cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
-        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, offset=offset)
+        query_states, key_states = apply_rotary_pos_emb(query_states,
+                                                        key_states,
+                                                        cos,
+                                                        sin,
+                                                        offset=offset)
         # [bsz, nh, t, hd]
 
         if past_key_value is not None:
@@ -567,13 +619,13 @@ class LLaMAAttention(nn.Module):
 
         past_key_value = (key_states, value_states)
 
-        attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
+        attn_weights = torch.matmul(query_states, key_states.transpose(
+            2, 3)) / math.sqrt(self.head_dim)
 
         if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len):
             raise ValueError(
                 f"Attention weights should be of size {(bsz * self.num_heads, q_len, kv_seq_len)}, but is"
-                f" {attn_weights.size()}"
-            )
+                f" {attn_weights.size()}")
 
         if attention_mask is not None:
             if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
@@ -581,17 +633,21 @@ class LLaMAAttention(nn.Module):
                     f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
                 )
             attn_weights = attn_weights + attention_mask
-            attn_weights = torch.max(attn_weights, torch.tensor(torch.finfo(attn_weights.dtype).min))
+            attn_weights = torch.max(
+                attn_weights,
+                torch.tensor(torch.finfo(attn_weights.dtype).min))
 
         # upcast attention to fp32
-        attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
+        attn_weights = nn.functional.softmax(attn_weights,
+                                             dim=-1,
+                                             dtype=torch.float32).to(
+                                                 query_states.dtype)
         attn_output = torch.matmul(attn_weights, value_states)
 
         if attn_output.size() != (bsz, self.num_heads, q_len, self.head_dim):
             raise ValueError(
                 f"`attn_output` should be of size {(bsz, self.num_heads, q_len, self.head_dim)}, but is"
-                f" {attn_output.size()}"
-            )
+                f" {attn_output.size()}")
 
         attn_output = attn_output.transpose(1, 2)
         attn_output = attn_output.reshape(bsz, q_len, self.hidden_size)
@@ -605,6 +661,7 @@ class LLaMAAttention(nn.Module):
 
 
 class LLaMADecoderLayer(nn.Module):
+
     def __init__(self, config: LLaMAConfig):
         super().__init__()
         self.hidden_size = config.hidden_size
@@ -617,8 +674,10 @@ class LLaMADecoderLayer(nn.Module):
             intermediate_size=config.intermediate_size,
             hidden_act=config.hidden_act,
         )
-        self.input_layernorm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        self.post_attention_layernorm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.input_layernorm = RMSNorm(config.hidden_size,
+                                       eps=config.rms_norm_eps)
+        self.post_attention_layernorm = RMSNorm(config.hidden_size,
+                                                eps=config.rms_norm_eps)
 
     def forward(
         self,
@@ -627,7 +686,8 @@ class LLaMADecoderLayer(nn.Module):
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = False,
         past_key_value: Optional[Tuple[torch.Tensor]] = None,
-    ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
+    ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor,
+                                                 torch.FloatTensor]]]:
         """
         Args:
             hidden_states (`torch.FloatTensor`): input to the layer of shape `(batch, seq_len, embed_dim)`
@@ -661,13 +721,13 @@ class LLaMADecoderLayer(nn.Module):
         hidden_states = self.mlp(hidden_states)
         hidden_states = residual + hidden_states
 
-        outputs = (hidden_states,)
+        outputs = (hidden_states, )
 
         if output_attentions:
-            outputs += (self_attn_weights,)
+            outputs += (self_attn_weights, )
 
         if use_cache:
-            outputs += (present_key_value,)
+            outputs += (present_key_value, )
 
         return outputs
 
@@ -779,8 +839,11 @@ class LLaMAModel(LLaMAPreTrainedModel):
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
 
-        self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
-        self.layers = nn.ModuleList([LLaMADecoderLayer(config) for _ in range(config.num_hidden_layers)])
+        self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size,
+                                         self.padding_idx)
+        self.layers = nn.ModuleList([
+            LLaMADecoderLayer(config) for _ in range(config.num_hidden_layers)
+        ])
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
         self.gradient_checkpointing = False
@@ -794,23 +857,28 @@ class LLaMAModel(LLaMAPreTrainedModel):
         self.embed_tokens = value
 
     # Copied from transformers.models.bart.modeling_bart.BartDecoder._prepare_decoder_attention_mask
-    def _prepare_decoder_attention_mask(self, attention_mask, input_shape, inputs_embeds, past_key_values_length):
+    def _prepare_decoder_attention_mask(self, attention_mask, input_shape,
+                                        inputs_embeds, past_key_values_length):
         # create causal mask
         # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
         combined_attention_mask = None
         if input_shape[-1] > 1:
             combined_attention_mask = _make_causal_mask(
-                input_shape, inputs_embeds.dtype, past_key_values_length=past_key_values_length
-            ).to(inputs_embeds.device)
+                input_shape,
+                inputs_embeds.dtype,
+                past_key_values_length=past_key_values_length).to(
+                    inputs_embeds.device)
 
         if attention_mask is not None:
             # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
-            expanded_attn_mask = _expand_mask(attention_mask, inputs_embeds.dtype, tgt_len=input_shape[-1]).to(
-                inputs_embeds.device
-            )
-            combined_attention_mask = (
-                expanded_attn_mask if combined_attention_mask is None else expanded_attn_mask + combined_attention_mask
-            )
+            expanded_attn_mask = _expand_mask(attention_mask,
+                                              inputs_embeds.dtype,
+                                              tgt_len=input_shape[-1]).to(
+                                                  inputs_embeds.device)
+            combined_attention_mask = (expanded_attn_mask
+                                       if combined_attention_mask is None else
+                                       expanded_attn_mask +
+                                       combined_attention_mask)
 
         return combined_attention_mask
 
@@ -863,36 +931,42 @@ class LLaMAModel(LLaMAPreTrainedModel):
                 Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
         """
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
-        output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
-        )
+        output_hidden_states = (output_hidden_states
+                                if output_hidden_states is not None else
+                                self.config.output_hidden_states)
         use_cache = use_cache if use_cache is not None else self.config.use_cache
 
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         # retrieve input_ids and inputs_embeds
         if input_ids is not None and inputs_embeds is not None:
-            raise ValueError("You cannot specify both decoder_input_ids and decoder_inputs_embeds at the same time")
+            raise ValueError(
+                "You cannot specify both decoder_input_ids and decoder_inputs_embeds at the same time"
+            )
         elif input_ids is not None:
             input_shape = input_ids.size()
             input_ids = input_ids.view(-1, input_shape[-1])
         elif inputs_embeds is not None:
             input_shape = inputs_embeds.size()[:-1]
         else:
-            raise ValueError("You have to specify either decoder_input_ids or decoder_inputs_embeds")
+            raise ValueError(
+                "You have to specify either decoder_input_ids or decoder_inputs_embeds"
+            )
 
-        past_key_values_length = past_key_values[0][0].shape[2] if past_key_values is not None else 0
+        past_key_values_length = past_key_values[0][0].shape[
+            2] if past_key_values is not None else 0
 
         if inputs_embeds is None:
             inputs_embeds = self.embed_tokens(input_ids)
 
         # embed positions
         if attention_mask is None:
-            attention_mask = torch.ones(inputs_embeds.shape[:2], dtype=torch.bool, device=inputs_embeds.device)
+            attention_mask = torch.ones(inputs_embeds.shape[:2],
+                                        dtype=torch.bool,
+                                        device=inputs_embeds.device)
 
         attention_mask = self._prepare_decoder_attention_mask(
-            attention_mask, input_shape, inputs_embeds, past_key_values_length
-        )
+            attention_mask, input_shape, inputs_embeds, past_key_values_length)
 
         hidden_states = inputs_embeds
 
@@ -910,13 +984,15 @@ class LLaMAModel(LLaMAPreTrainedModel):
 
         for idx, decoder_layer in enumerate(self.layers):
             if output_hidden_states:
-                all_hidden_states += (hidden_states,)
+                all_hidden_states += (hidden_states, )
 
-            past_key_value = past_key_values[idx] if past_key_values is not None else None
+            past_key_value = past_key_values[
+                idx] if past_key_values is not None else None
 
             if self.gradient_checkpointing and self.training:
 
                 def create_custom_forward(module):
+
                     def custom_forward(*inputs):
                         # None for past_key_value
                         return module(*inputs, output_attentions, None)
@@ -941,20 +1017,24 @@ class LLaMAModel(LLaMAPreTrainedModel):
             hidden_states = layer_outputs[0]
 
             if use_cache:
-                next_decoder_cache += (layer_outputs[2 if output_attentions else 1],)
+                next_decoder_cache += (
+                    layer_outputs[2 if output_attentions else 1], )
 
             if output_attentions:
-                all_self_attns += (layer_outputs[1],)
+                all_self_attns += (layer_outputs[1], )
 
         hidden_states = self.norm(hidden_states)
 
         # add hidden states from the last decoder layer
         if output_hidden_states:
-            all_hidden_states += (hidden_states,)
+            all_hidden_states += (hidden_states, )
 
         next_cache = next_decoder_cache if use_cache else None
         if not return_dict:
-            return tuple(v for v in [hidden_states, next_cache, all_hidden_states, all_self_attns] if v is not None)
+            return tuple(
+                v for v in
+                [hidden_states, next_cache, all_hidden_states, all_self_attns]
+                if v is not None)
         return BaseModelOutputWithPast(
             last_hidden_state=hidden_states,
             past_key_values=next_cache,
@@ -970,7 +1050,9 @@ class LLaMAForCausalLM(LLaMAPreTrainedModel):
         super().__init__(config)
         self.model = LLaMAModel(config)
 
-        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.lm_head = nn.Linear(config.hidden_size,
+                                 config.vocab_size,
+                                 bias=False)
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -993,7 +1075,8 @@ class LLaMAForCausalLM(LLaMAPreTrainedModel):
     def get_decoder(self):
         return self.model
 
-    @replace_return_docstrings(output_type=CausalLMOutputWithPast, config_class=_CONFIG_FOR_DOC)
+    @replace_return_docstrings(output_type=CausalLMOutputWithPast,
+                               config_class=_CONFIG_FOR_DOC)
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -1063,9 +1146,9 @@ class LLaMAForCausalLM(LLaMAPreTrainedModel):
         ```"""
 
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
-        output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
-        )
+        output_hidden_states = (output_hidden_states
+                                if output_hidden_states is not None else
+                                self.config.output_hidden_states)
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
@@ -1090,11 +1173,12 @@ class LLaMAForCausalLM(LLaMAPreTrainedModel):
             shift_labels = labels[..., 1:].contiguous()
             # Flatten the tokens
             loss_fct = CrossEntropyLoss()
-            loss = loss_fct(shift_logits.view(-1, self.config.vocab_size), shift_labels.view(-1))
+            loss = loss_fct(shift_logits.view(-1, self.config.vocab_size),
+                            shift_labels.view(-1))
 
         if not return_dict:
-            output = (logits,) + outputs[1:]
-            return (loss,) + output if loss is not None else output
+            output = (logits, ) + outputs[1:]
+            return (loss, ) + output if loss is not None else output
 
         return CausalLMOutputWithPast(
             loss=loss,
@@ -1104,9 +1188,12 @@ class LLaMAForCausalLM(LLaMAPreTrainedModel):
             attentions=outputs.attentions,
         )
 
-    def prepare_inputs_for_generation(
-        self, input_ids, past_key_values=None, attention_mask=None, inputs_embeds=None, **kwargs
-    ):
+    def prepare_inputs_for_generation(self,
+                                      input_ids,
+                                      past_key_values=None,
+                                      attention_mask=None,
+                                      inputs_embeds=None,
+                                      **kwargs):
         if past_key_values:
             input_ids = input_ids[:, -1:]
 
@@ -1116,59 +1203,74 @@ class LLaMAForCausalLM(LLaMAPreTrainedModel):
         else:
             model_inputs = {"input_ids": input_ids}
 
-        model_inputs.update(
-            {
-                "past_key_values": past_key_values,
-                "use_cache": kwargs.get("use_cache"),
-                "attention_mask": attention_mask,
-            }
-        )
+        model_inputs.update({
+            "past_key_values": past_key_values,
+            "use_cache": kwargs.get("use_cache"),
+            "attention_mask": attention_mask,
+        })
         return model_inputs
 
     @staticmethod
     def _reorder_cache(past_key_values, beam_idx):
         reordered_past = ()
         for layer_past in past_key_values:
-            reordered_past += (tuple(past_state.index_select(0, beam_idx) for past_state in layer_past),)
+            reordered_past += (tuple(
+                past_state.index_select(0, beam_idx)
+                for past_state in layer_past), )
         return reordered_past
-    
-    
-    
+
+
 class GPTEmbeddings(nn.Module):
+
     def __init__(self, config, device='cpu'):
         super().__init__()
         self.config = config
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
 
-        self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
-        
-    def forward(self, input_ids, *args, **kargs,):
-       
+        self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size,
+                                         self.padding_idx)
+
+    def forward(
+        self,
+        input_ids,
+        *args,
+        **kargs,
+    ):
+
         inputs_embeds = self.embed_tokens(input_ids)
-        
+
         return inputs_embeds
-    
-    
+
+
 class GPTLMHead(nn.Module):
+
     def __init__(self, config, device='cpu'):
         super().__init__()
         self.config = config
-        
+
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        
-        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
-        
-    def forward(self, hidden_states, *args, **kargs,):
-        
+
+        self.lm_head = nn.Linear(config.hidden_size,
+                                 config.vocab_size,
+                                 bias=False)
+
+    def forward(
+        self,
+        hidden_states,
+        *args,
+        **kargs,
+    ):
+
         hidden_states = self.norm(hidden_states)
-    
+
         logits = self.lm_head(hidden_states)
-        
+
         return logits
-    
-    
+
+
 class GPTBlock(nn.Module):
+
     def __init__(self, config: LLaMAConfig, *args, **kargs):
         super().__init__()
         self.hidden_size = config.hidden_size
@@ -1181,10 +1283,13 @@ class GPTBlock(nn.Module):
             intermediate_size=config.intermediate_size,
             hidden_act=config.hidden_act,
         )
-        self.input_layernorm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        self.post_attention_layernorm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        
-        def attn_res(hidden_states: torch.Tensor, attention_mask=None) -> torch.Tensor:
+        self.input_layernorm = RMSNorm(config.hidden_size,
+                                       eps=config.rms_norm_eps)
+        self.post_attention_layernorm = RMSNorm(config.hidden_size,
+                                                eps=config.rms_norm_eps)
+
+        def attn_res(hidden_states: torch.Tensor,
+                     attention_mask=None) -> torch.Tensor:
             residual = hidden_states
 
             hidden_states = self.input_layernorm(hidden_states)
@@ -1198,9 +1303,9 @@ class GPTBlock(nn.Module):
             hidden_states = residual + hidden_states
 
             return hidden_states
-        
+
         self.attn_res = attn_res
-        
+
         def mlp_res(hidden_states: torch.Tensor) -> torch.Tensor:
             # Fully Connected
             residual = hidden_states
@@ -1208,23 +1313,28 @@ class GPTBlock(nn.Module):
             hidden_states = self.mlp(hidden_states)
             hidden_states = residual + hidden_states
             return hidden_states
-        
+
         self.mlp_res = mlp_res
-        
+
         self.use_checkpoint = True
 
-    def forward(self, x: torch.Tensor, layer_past=None, mask=None, *args, **kargs) -> torch.Tensor:
-        
+    def forward(self,
+                x: torch.Tensor,
+                layer_past=None,
+                mask=None,
+                *args,
+                **kargs) -> torch.Tensor:
+
         if layer_past is not None:
             past_length = layer_past[0].size(2)
         else:
             past_length = 0
         if mask is None:
-            mask = torch.ones((x.size(0), x.size(1)+past_length), 
-                dtype=torch.bool, device=x.device)
+            mask = torch.ones((x.size(0), x.size(1) + past_length),
+                              dtype=torch.bool,
+                              device=x.device)
         attention_mask = _prepare_decoder_attention_mask(
-            mask, x.shape[:2], x, past_length
-        )
+            mask, x.shape[:2], x, past_length)
 
         if self.use_checkpoint:
             x.requires_grad_(True)
@@ -1237,6 +1347,5 @@ class GPTBlock(nn.Module):
             x = checkpoint(self.mlp_res, x)
         else:
             x = self.mlp_res(x)
-        
+
         return x
-    

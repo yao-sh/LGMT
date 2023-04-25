@@ -1,11 +1,14 @@
 from torch import nn
-from .deberta_modules import DebertaV2Embeddings, DebertaV2Layers, DebertaClassificationHead
+
+from .deberta_modules import (DebertaClassificationHead, DebertaV2Embeddings,
+                              DebertaV2Layers)
 
 
 class DebertaStageBase(nn.Module):
+
     def __init__(self, args, config):
         super().__init__()
-        self._to_cpu = False # (args.dist_backend == "gloo")
+        self._to_cpu = False  # (args.dist_backend == "gloo")
         self.config = config
 
     def _create_first_layer(self):
@@ -15,15 +18,18 @@ class DebertaStageBase(nn.Module):
         return DebertaClassificationHead(self.config)
 
     def _create_transformer_layers(self, first_block=False):
-        return DebertaV2Layers(self.config, first_block=first_block) # TODO: checkpoint
+        return DebertaV2Layers(self.config,
+                               first_block=first_block)  # TODO: checkpoint
 
 
 class DebertaStageFirst(DebertaStageBase):
+
     def __init__(self, args, config, device):
         super().__init__(args, config)
         self.device = device
         self.embeddings = self._create_first_layer().to(device)
-        self.encoder = self._create_transformer_layers(first_block=True).to(device)
+        self.encoder = self._create_transformer_layers(
+            first_block=True).to(device)
 
     def forward(self, x, token_type_ids=None, attention_mask=None):
         if self._to_cpu:
@@ -38,10 +44,12 @@ class DebertaStageFirst(DebertaStageBase):
 
 
 class DebertaStageMiddle(DebertaStageBase):
+
     def __init__(self, args, config, device):
         super().__init__(args, config)
         self.device = device
-        self.encoder = self._create_transformer_layers(first_block=False).to(device)
+        self.encoder = self._create_transformer_layers(
+            first_block=False).to(device)
 
     def forward(self, x, attention_mask=None):
         if self._to_cpu:
@@ -53,10 +61,12 @@ class DebertaStageMiddle(DebertaStageBase):
 
 
 class DebertaStageLast(DebertaStageBase):
+
     def __init__(self, args, config, device):
         super().__init__(args, config)
         self.device = device
-        self.encoder = self._create_transformer_layers(first_block=False).to(device)
+        self.encoder = self._create_transformer_layers(
+            first_block=False).to(device)
         self.output_head = self._create_last_layer().to(device)
 
     def forward(self, x, attention_mask=None, input_ids=None):

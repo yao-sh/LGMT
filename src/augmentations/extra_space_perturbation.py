@@ -22,7 +22,9 @@ class ExtraSpacePerturbation(Perturbation):
 
     @property
     def description(self) -> PerturbationDescription:
-        return ExtraSpacePerturbation.Description(name=self.name, robustness=True, num_spaces=self.num_spaces)
+        return ExtraSpacePerturbation.Description(name=self.name,
+                                                  robustness=True,
+                                                  num_spaces=self.num_spaces)
 
     def perturb(self, text: str, rng: Random) -> str:
         return text.replace(" ", " " * self.num_spaces)

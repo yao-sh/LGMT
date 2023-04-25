@@ -1,10 +1,9 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import collections
 import re
 import unicodedata
+
 import six
 
 
@@ -54,8 +53,9 @@ def validate_case_matches_checkpoint(do_lower_case, init_checkpoint):
             "However, `%s` seems to be a %s model, so you "
             "should pass in `--do_lower_case=%s` so that the fine-tuning matches "
             "how the model was pre-training. If this error is wrong, please "
-            "just comment out this check." % (actual_flag, init_checkpoint,
-                                              model_name, case_name, opposite_flag))
+            "just comment out this check." %
+            (actual_flag, init_checkpoint, model_name, case_name,
+             opposite_flag))
 
 
 def convert_to_unicode(text):
@@ -158,18 +158,12 @@ class FullTokenizer(object):
             """ Clean up a list of simple English tokenization artifacts
             like spaces before punctuations and abreviated forms.
             """
-            out_string = (
-                out_string.replace(" .", ".")
-                    .replace(" ?", "?")
-                    .replace(" !", "!")
-                    .replace(" ,", ",")
-                    .replace(" ' ", "'")
-                    .replace(" n't", "n't")
-                    .replace(" 'm", "'m")
-                    .replace(" 's", "'s")
-                    .replace(" 've", "'ve")
-                    .replace(" 're", "'re")
-            )
+            out_string = (out_string.replace(" .", ".").replace(
+                " ?", "?").replace(" !", "!").replace(" ,", ",").replace(
+                    " ' ",
+                    "'").replace(" n't", "n't").replace(" 'm", "'m").replace(
+                        " 's", "'s").replace(" 've",
+                                             "'ve").replace(" 're", "'re"))
             return out_string
 
         text = ' '.join(tokens).replace(' ##', '').strip()
@@ -279,7 +273,7 @@ class BasicTokenizer(object):
             (cp >= 0x2B740 and cp <= 0x2B81F) or  #
             (cp >= 0x2B820 and cp <= 0x2CEAF) or
             (cp >= 0xF900 and cp <= 0xFAFF) or  #
-                (cp >= 0x2F800 and cp <= 0x2FA1F)):  #
+            (cp >= 0x2F800 and cp <= 0x2FA1F)):  #
             return True
 
         return False
@@ -391,8 +385,8 @@ def _is_punctuation(char):
     # Characters such as "^", "$", and "`" are not in the Unicode
     # Punctuation class but we treat them as punctuation anyways, for
     # consistency.
-    if ((cp >= 33 and cp <= 47) or (cp >= 58 and cp <= 64) or
-            (cp >= 91 and cp <= 96) or (cp >= 123 and cp <= 126)):
+    if ((cp >= 33 and cp <= 47) or (cp >= 58 and cp <= 64)
+            or (cp >= 91 and cp <= 96) or (cp >= 123 and cp <= 126)):
         return True
     cat = unicodedata.category(char)
     if cat.startswith("P"):

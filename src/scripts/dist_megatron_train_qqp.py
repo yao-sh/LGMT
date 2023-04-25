@@ -1,6 +1,6 @@
 import sys
-sys.path.append('../Megatron-LM')
 
+sys.path.append('../Megatron-LM')
 
 # coding=utf-8
 # Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
@@ -16,7 +16,6 @@ sys.path.append('../Megatron-LM')
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """GLUE finetuning/evaluation."""
 from functools import partial
 import torch
@@ -34,7 +33,7 @@ from megatron.model import DistributedDataParallel as LocalDDP
 from torch.nn.parallel.distributed import DistributedDataParallel as torchDDP
 from megatron.model.classification import Classification
 from megatron.initialize import initialize_megatron
-from megatron.utils import average_losses_across_data_parallel_group,unwrap_model
+from megatron.utils import average_losses_across_data_parallel_group, unwrap_model
 from megatron.training import setup_model_and_optimizer, print_datetime
 from megatron.schedules import get_forward_backward_func
 from tasks.glue.qqp import QQPDataset
@@ -43,11 +42,17 @@ from megatron.data.data_samplers import MegatronPretrainingSampler
 
 def get_qqp_args(parser):
     group = parser.add_argument_group(title='tasks')
-    group.add_argument('--train-data-path', type=str, required=True,
+    group.add_argument('--train-data-path',
+                       type=str,
+                       required=True,
                        help='train data path.')
-    group.add_argument('--valid-data-path', type=str, required=True,
+    group.add_argument('--valid-data-path',
+                       type=str,
+                       required=True,
                        help='train data path.')
-    group.add_argument('--test-data-path', type=str, required=True,
+    group.add_argument('--test-data-path',
+                       type=str,
+                       required=True,
                        help='train data path.')
     return parser
 
@@ -68,10 +73,11 @@ def train_dataset_provider():
             micro_batch_size=args.micro_batch_size,
             data_parallel_rank=mpu.get_data_parallel_rank(),
             data_parallel_size=mpu.get_data_parallel_world_size())
-        train_dataloader = torch.utils.data.DataLoader(train_dataset,
-                                       batch_sampler=train_sampler,
-                                       num_workers=args.num_workers,
-                                       pin_memory=True)
+        train_dataloader = torch.utils.data.DataLoader(
+            train_dataset,
+            batch_sampler=train_sampler,
+            num_workers=args.num_workers,
+            pin_memory=True)
 
         # Flags to know if we need to do training/validation/testing.
         do_train = train_dataloader is not None and args.train_iters > 0
@@ -79,7 +85,8 @@ def train_dataset_provider():
         do_test = False
         # Need to broadcast num_tokens and num_type_tokens.
         flags = torch.cuda.LongTensor(
-            [int(do_train), int(do_valid), int(do_test)])
+            [int(do_train), int(do_valid),
+             int(do_test)])
     else:
         flags = torch.cuda.LongTensor([0, 0, 0])
 
@@ -108,15 +115,16 @@ def model_provider(pre_process=True, post_process=True):
     """Build the model."""
     num_classes = 2
     print_rank_0('building classification model for QQP ...')
-    model = Classification(num_classes=num_classes, num_tokentypes=2,
-                           pre_process=pre_process, post_process=post_process)
+    model = Classification(num_classes=num_classes,
+                           num_tokentypes=2,
+                           pre_process=pre_process,
+                           post_process=post_process)
     return model
 
 
 def loss_func(labels, output_tensor):
     loss = F.cross_entropy(output_tensor, labels)
-    averaged_losses = average_losses_across_data_parallel_group(
-            [loss])
+    averaged_losses = average_losses_across_data_parallel_group([loss])
     return loss, {'classification loss': averaged_losses[0]}
 
 
@@ -149,8 +157,12 @@ def forward_step(data_iterator, model):
     return output_tensor, partial(loss_func, lm_labels)
 
 
-def megatron_train_step(forward_step_func, data_iterator,
-                        model, optimizer, lr_scheduler, profile=False):
+def megatron_train_step(forward_step_func,
+                        data_iterator,
+                        model,
+                        optimizer,
+                        lr_scheduler,
+                        profile=False):
     """Single training step."""
     args = get_args()
     timers = get_timers()
@@ -165,9 +177,12 @@ def megatron_train_step(forward_step_func, data_iterator,
     optimizer.zero_grad()
 
     forward_backward_func = get_forward_backward_func()
-    losses_reduced = forward_backward_func(
-        forward_step_func, data_iterator, model,
-        optimizer, timers, forward_only=profile)
+    losses_reduced = forward_backward_func(forward_step_func,
+                                           data_iterator,
+                                           model,
+                                           optimizer,
+                                           timers,
+                                           forward_only=profile)
     if profile:
         prof.stop_profile()
         if torch.distributed.get_rank() == 0:
@@ -203,7 +218,8 @@ def megatron_train_step(forward_step_func, data_iterator,
             unwrapped_model = model[-1]
         else:  # We do not support the interleaved schedule for T5 yet.
             unwrapped_model = model[0]
-        unwrapped_model = unwrap_model(unwrapped_model, (torchDDP, LocalDDP, Float16Module))
+        unwrapped_model = unwrap_model(unwrapped_model,
+                                       (torchDDP, LocalDDP, Float16Module))
 
         if unwrapped_model.share_word_embeddings:
             word_embeddings_weight = unwrapped_model.word_embeddings_weight()
@@ -220,12 +236,13 @@ def megatron_train_step(forward_step_func, data_iterator,
             mpu.get_pipeline_model_parallel_world_size() > 1 and \
             args.pipeline_model_parallel_split_rank is not None:
         unwrapped_model = model[0]
-        unwrapped_model = unwrap_model(
-            unwrapped_model, (torchDDP, LocalDDP, Float16Module))
+        unwrapped_model = unwrap_model(unwrapped_model,
+                                       (torchDDP, LocalDDP, Float16Module))
         assert args.DDP_impl == 'local', \
             'T5 model is only supported with local DDP mode'
         grad = unwrapped_model.language_model.embedding.position_embeddings.weight.main_grad
-        torch.distributed.all_reduce(grad, group=mpu.get_position_embedding_group())
+        torch.distributed.all_reduce(grad,
+                                     group=mpu.get_position_embedding_group())
     timers('backward-embedding-all-reduce').stop()
 
     # Update parameters.
@@ -252,7 +269,8 @@ def megatron_train_step(forward_step_func, data_iterator,
         loss_reduced = {}
         for key in losses_reduced[0]:
             losses_reduced_for_key = [x[key] for x in losses_reduced]
-            loss_reduced[key] = sum(losses_reduced_for_key) / len(losses_reduced_for_key)
+            loss_reduced[key] = sum(losses_reduced_for_key) / len(
+                losses_reduced_for_key)
         return loss_reduced, skipped_iter, grad_norm, num_zeros_in_grad
     return {}, skipped_iter, grad_norm, num_zeros_in_grad
 
@@ -275,7 +293,8 @@ def train_qqp(train_dataset_provider,
     torch.distributed.all_reduce(start_time_tensor,
                                  op=torch.distributed.ReduceOp.MIN)
     _TRAIN_START_TIME = start_time_tensor.item()
-    print_rank_0('time to initialize megatron (seconds): {:.3f}'.format(time.time() - _TRAIN_START_TIME))
+    print_rank_0('time to initialize megatron (seconds): {:.3f}'.format(
+        time.time() - _TRAIN_START_TIME))
     print_datetime('after megatron is initialized')
 
     args = get_args()
@@ -283,13 +302,16 @@ def train_qqp(train_dataset_provider,
 
     # Model, optimizer, and learning rate.
     timers('model-and-optimizer-setup').start()
-    model, optimizer, lr_scheduler = setup_model_and_optimizer(model_provider, model_type)
+    model, optimizer, lr_scheduler = setup_model_and_optimizer(
+        model_provider, model_type)
     timers('model-and-optimizer-setup').stop()
-    print_datetime('after model, optimizer, and learning rate scheduler are built')
+    print_datetime(
+        'after model, optimizer, and learning rate scheduler are built')
 
     # Data stuff.
     timers('train-data-iterators-setup').start()
-    train_data_iterator, valid_data_iterator, test_data_iterator = train_dataset_provider()
+    train_data_iterator, valid_data_iterator, test_data_iterator = train_dataset_provider(
+    )
     timers('train-data-iterators-setup').stop()
     print_datetime('after data iterators are built')
 
@@ -302,19 +324,29 @@ def train_qqp(train_dataset_provider,
     timers('first-train-iter').start()
     print_rank_0('training iter 0')
     # Profiling does not work yet.
-    megatron_train_step(forward_step_func, train_data_iterator, model, optimizer, lr_scheduler, profile=False)
+    megatron_train_step(forward_step_func,
+                        train_data_iterator,
+                        model,
+                        optimizer,
+                        lr_scheduler,
+                        profile=False)
     timers('first-train-iter').stop()
     print_datetime('First iter stop')
     timers.log(['first-train-iter'])
 
     print_datetime('Benchmark iter start')
-    timers('benchmark-iter-'+str(args.train_iters)).start()
+    timers('benchmark-iter-' + str(args.train_iters)).start()
     for i in range(args.train_iters):
-        print_rank_0('training iter '+str(i+1))
-        megatron_train_step(forward_step_func, train_data_iterator, model, optimizer, lr_scheduler, profile=False)
-    timers('benchmark-iter-'+str(args.train_iters)).stop()
+        print_rank_0('training iter ' + str(i + 1))
+        megatron_train_step(forward_step_func,
+                            train_data_iterator,
+                            model,
+                            optimizer,
+                            lr_scheduler,
+                            profile=False)
+    timers('benchmark-iter-' + str(args.train_iters)).stop()
     print_datetime('Benchmark iter stop')
-    timers.log(['first-train-iter', 'benchmark-iter-'+str(args.train_iters)])
+    timers.log(['first-train-iter', 'benchmark-iter-' + str(args.train_iters)])
 
 
 if __name__ == '__main__':

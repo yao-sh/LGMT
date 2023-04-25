@@ -30,6 +30,7 @@ def simple_parse_args_string(args_string):
         args_dict[k] = v
     return args_dict
 
+
 def join_iters(iters):
     for iter in iters:
         yield from iter
@@ -42,16 +43,18 @@ def chunks(iter, n):
         if len(arr) == n:
             yield arr
             arr = []
-    
+
     if arr: yield arr
+
 
 def group(arr, fn):
     res = collections.defaultdict(list)
 
     for ob in arr:
         res[fn(ob)].append(ob)
-    
+
     return list(res.values())
+
 
 def general_detokenize(string):
     string = string.replace(" n't", "n't")
@@ -63,7 +66,8 @@ def general_detokenize(string):
     return string
 
 
-def get_rolling_token_windows(token_list, prefix_token, max_seq_len, context_len):
+def get_rolling_token_windows(token_list, prefix_token, max_seq_len,
+                              context_len):
     """
     - context_len allows for a rolling window context, allowing each prediction window to potentially
       condition on some context
@@ -90,10 +94,8 @@ def get_rolling_token_windows(token_list, prefix_token, max_seq_len, context_len
 
     # Special handling for first window: predict all tokens
     first_seq_len = min(max_seq_len, len(token_list))
-    yield (
-        [prefix_token] + token_list[:first_seq_len - 1],
-        token_list[:first_seq_len]
-    )
+    yield ([prefix_token] + token_list[:first_seq_len - 1],
+           token_list[:first_seq_len])
     predicted += first_seq_len
 
     while predicted < len(token_list):
@@ -106,6 +108,7 @@ def get_rolling_token_windows(token_list, prefix_token, max_seq_len, context_len
         )
         predicted += window_pred_len
 
+
 def make_disjoint_window(pair):
     """ Takes output from get_rolling_token_windows and makes the context not overlap with the continuation """
 
@@ -113,45 +116,47 @@ def make_disjoint_window(pair):
 
     return a[:-(len(b) - 1)], b
 
+
 class Reorderer:
+
     def __init__(self, arr, fn):
         self.size = len(arr)
         arr = list(enumerate(arr))
         arr = group(arr, lambda x: fn(x[1]))
-        arr = [
-            ([y[0] for y in x], x[0][1]) for x in arr
-        ]
+        arr = [([y[0] for y in x], x[0][1]) for x in arr]
         arr.sort(key=lambda x: fn(x[1]))
 
         self.arr = arr
-        
-    
+
     def get_reordered(self):
         return [x[1] for x in self.arr]
-    
+
     def get_original(self, newarr):
         res = [None] * self.size
         cov = [False] * self.size
 
         for (inds, _), v in zip(self.arr, newarr):
-            for ind in inds: 
+            for ind in inds:
                 res[ind] = v
                 cov[ind] = True
-        
+
         assert all(cov)
-        
+
         return res
+
 
 def positional_deprecated(fn):
     """
     A decorator to nudge users into passing only keyword args (`kwargs`) to the 
     wrapped function, `fn`.
     """
+
     @functools.wraps(fn)
     def _wrapper(*args, **kwargs):
-        if len(args) != 1 if inspect.ismethod(fn) else 0: 
+        if len(args) != 1 if inspect.ismethod(fn) else 0:
             print(f"WARNING: using {fn.__name__} with positional arguments is "
-                "deprecated and will be disallowed in a future version of "
-                "lm-evaluation-harness!")
+                  "deprecated and will be disallowed in a future version of "
+                  "lm-evaluation-harness!")
         return fn(*args, **kwargs)
+
     return _wrapper

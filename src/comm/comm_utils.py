@@ -1,5 +1,5 @@
-from .torch_backend import *
 from .nccl_backend import *
+from .torch_backend import *
 
 _DATA_PARALLEL_COMM = None
 _DATA_PARALLEL_RANK = None
@@ -13,12 +13,14 @@ _TENSOR_PARALLEL_COMM = None
 _TENSOR_PARALLEL_RANK = None
 _TENSOR_PARALLEL_WORLD_SIZE = None
 
-import threading 
+import threading
 
 _LOCK = threading.RLock()
 
+
 def get_lock():
     return _LOCK
+
 
 def get_data_parallel_comm() -> NCCLCommunicator:
     assert _DATA_PARALLEL_COMM is not None
@@ -84,39 +86,49 @@ def init_communicators(args):
         # We use pipeline parallel by default.
         _PIPELINE_PARALLEL_WORLD_SIZE = args.pipeline_group_size
         _PIPELINE_PARALLEL_RANK = args.rank % args.pipeline_group_size
-        _PIPELINE_PARALLEL_COMM = NCCLCommunicator(_PIPELINE_PARALLEL_RANK, args.cuda_id, args.pipeline_group_size,
-                                                   "pipeline_group_"+str(args.rank // args.pipeline_group_size))
+        _PIPELINE_PARALLEL_COMM = NCCLCommunicator(
+            _PIPELINE_PARALLEL_RANK, args.cuda_id, args.pipeline_group_size,
+            "pipeline_group_" + str(args.rank // args.pipeline_group_size))
         if args.data_group_size != 1:
             _DATA_PARALLEL_WORLD_SIZE = args.data_group_size
             _DATA_PARALLEL_RANK = args.rank // args.pipeline_group_size
-            
+
             dp_backend = getattr(args, 'dp_backend', 'gloo')
             if dp_backend == 'nccl':
-            
-                _DATA_PARALLEL_COMM = NCCLCommunicator(_DATA_PARALLEL_RANK, args.cuda_id, args.data_group_size,
-                                                       "data_group_"+str(args.rank % args.pipeline_group_size))
-            
+
+                _DATA_PARALLEL_COMM = NCCLCommunicator(
+                    _DATA_PARALLEL_RANK, args.cuda_id, args.data_group_size,
+                    "data_group_" + str(args.rank % args.pipeline_group_size))
+
             elif dp_backend == 'gloo':
-                
+
                 for i in range(args.pipeline_group_size):
-                    ranks = [rank for rank in range(i, args.world_size, args.pipeline_group_size)]
+                    ranks = [
+                        rank for rank in range(i, args.world_size,
+                                               args.pipeline_group_size)
+                    ]
                     print(args.rank, ranks)
-                    data_group = torch.distributed.new_group(ranks, backend='gloo')
+                    data_group = torch.distributed.new_group(ranks,
+                                                             backend='gloo')
                     if args.rank in ranks:
+
                         def to_global_rank(dp_rank):
                             rank = _PIPELINE_PARALLEL_RANK + dp_rank * args.pipeline_group_size
                             # print(f"{dp_rank} --> {rank}")
                             return rank
+
                         _DATA_PARALLEL_COMM = TorchCommunicator(
-                            data_group, to_global_rank=to_global_rank, 
+                            data_group,
+                            to_global_rank=to_global_rank,
                             dp_rank=_DATA_PARALLEL_RANK,
-                            comm_group_size=args.data_group_size,)
-            
+                            comm_group_size=args.data_group_size,
+                        )
+
             else:
                 assert False
-            
+
         print('comm init done!!')
-            
+
     # elif args.world_size == args.data_group_size * args.tensor_group_size:
     #    global _DATA_PARALLEL_COMM
     #    global _TENSOR_PARALLEL_COMM
@@ -124,7 +136,7 @@ def init_communicators(args):
     #    global _TENSOR_PARALLEL_RANK
     #    global _DATA_PARALLEL_WORLD_SIZE
     #    global _TENSOR_PARALLEL_WORLD_SIZE
-        # We use megatron tensor parallel by default.
+    # We use megatron tensor parallel by default.
     #    _TENSOR_PARALLEL_WORLD_SIZE = args.tensor_group_size
     #    _TENSOR_PARALLEL_RANK = args.rank % args.tensor_group_size
     #    _TENSOR_PARALLEL_COMM = NCCLCommunicator(_TENSOR_PARALLEL_RANK, args.cuda_id, args.tensor_group_size,

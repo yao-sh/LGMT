@@ -1,7 +1,6 @@
+import string
 from dataclasses import dataclass
 from random import Random
-import string
-import re
 
 from .perturbation import Perturbation
 from .perturbation_description import PerturbationDescription
@@ -23,7 +22,9 @@ class MissPuntPerturbation(Perturbation):
 
     @property
     def description(self) -> PerturbationDescription:
-        return MissPuntPerturbation.Description(name=self.name, robustness=True, prob=self.prob)
+        return MissPuntPerturbation.Description(name=self.name,
+                                                robustness=True,
+                                                prob=self.prob)
 
     def perturb(self, text: str, rng: Random) -> str:
         if rng.random() < self.prob:

@@ -1,8 +1,11 @@
+from .delta_modules import (DeltaCompressor, DeltaLowBitsCompressor,
+                            DeltaTopKLowBitsCompressor, TopKDeltaCompressor)
 from .dummy_modules import NoCompression
 from .fixpoint_modules import FixpointCompressor, FixpointFlexibleCompressor
 from .sparsification_modules import TopKCompressor
-from .delta_modules import DeltaCompressor, DeltaLowBitsCompressor, DeltaTopKLowBitsCompressor, TopKDeltaCompressor
+
 # from .simulate_modules import SimulateTestCompression, SimulateDeltaCompression
+
 
 def get_compressor(*args, compress_method='none', **kargs):
     if compress_method == 'none':

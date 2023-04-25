@@ -4,10 +4,7 @@ import math
 from torch import nn
 from torch.nn import functional
 from torch.utils.checkpoint import checkpoint
-from transformers.modeling_outputs import (
-    BaseModelOutputWithPastAndCrossAttentions,
-    CausalLMOutputWithCrossAttentions,
-)
+from transformers.modeling_outputs import BaseModelOutputWithPastAndCrossAttentions,CausalLMOutputWithCrossAttentions
 
 
 #### Hack Deberta #####

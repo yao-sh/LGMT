@@ -24,13 +24,20 @@ def main():
     add_task_arguments(parser)
     add_training_hyper_parameter_arguments(parser)
 
-    parser.add_argument('--seed', type=int, default=1, metavar='S', help='random seed (default: 1)')
+    parser.add_argument('--seed',
+                        type=int,
+                        default=1,
+                        metavar='S',
+                        help='random seed (default: 1)')
     args = parser.parse_args()
     torch.manual_seed(args.seed)
-    assert args.use_cuda and torch.cuda.is_available() and args.cuda_num <= torch.cuda.device_count()
+    assert args.use_cuda and torch.cuda.is_available(
+    ) and args.cuda_num <= torch.cuda.device_count()
 
-    dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
-                            rank=args.rank, world_size=args.world_size)
+    dist.init_process_group(backend=args.dist_backend,
+                            init_method=args.dist_url,
+                            rank=args.rank,
+                            world_size=args.world_size)
 
     tokenizer = build_tokenizer(args)
     print("token vocab size:", tokenizer.vocab_size)
@@ -39,18 +46,21 @@ def main():
     vocab_size = tokenizer.vocab_size
     num_classes = 2
 
-    assert(args.num_layers % args.cuda_num == 0)
+    assert (args.num_layers % args.cuda_num == 0)
 
     num_stage_layers = args.num_layers // args.cuda_num
     stages_list = []
     for local_cuda_rank in range(args.cuda_num):
         device = torch.device('cuda', local_cuda_rank)
         if local_cuda_rank == 0:
-            stages_model = GPTFsdpStageFirst(args, num_stage_layers, vocab_size, num_classes, device)
+            stages_model = GPTFsdpStageFirst(args, num_stage_layers,
+                                             vocab_size, num_classes, device)
         elif local_cuda_rank == args.cuda_num - 1:
-            stages_model = GPTFsdpStageLast(args, num_stage_layers, vocab_size, num_classes, device)
+            stages_model = GPTFsdpStageLast(args, num_stage_layers, vocab_size,
+                                            num_classes, device)
         else:
-            stages_model = GPTFsdpStageMiddle(args, num_stage_layers, vocab_size, num_classes, device)
+            stages_model = GPTFsdpStageMiddle(args, num_stage_layers,
+                                              vocab_size, num_classes, device)
         stages_list.append(stages_model)
     model = torch.nn.Sequential(*stages_list)
     chunks = args.batch_size // args.micro_batch_size
@@ -67,8 +77,7 @@ def main():
             # versions >= 1.8.1
             _transports=["ibv", "uv"],
             _channels=["cuda_ipc", "cuda_basic"],
-        )
-    )
+        ))
 
     pipe_model = Pipe(model, chunks=chunks, checkpoint='never')
 
@@ -89,18 +98,21 @@ def main():
         input_ids = data['text'].to(torch.device('cuda', 0))
         # input_ids.require_grad = True
         # position_ids = get_position_id(args.seq_length, args.batch_size, torch.device('cuda', 0))
-        labels = data['label'].to(torch.device('cuda', args.cuda_num-1))
+        labels = data['label'].to(torch.device('cuda', args.cuda_num - 1))
 
         # output = pipe_model(input_ids, position_ids)
         output = pipe_model(input_ids).local_value()
         print(output.shape, labels.shape)
         loss = torch.nn.functional.cross_entropy(output, labels)
         forward_time = time.time()
-        print("{} Forward pass takes {:3.2f}s, loss: ".format(i, forward_time-cur_start_time), loss.item())
+        print(
+            "{} Forward pass takes {:3.2f}s, loss: ".format(
+                i, forward_time - cur_start_time), loss.item())
         print_multi_cuda_memory(args, "FSDP forward iter is done")
         loss.backward()
         backward_time = time.time()
-        print("{} Backward pass takes {:3.2f}s".format(i, backward_time-forward_time))
+        print("{} Backward pass takes {:3.2f}s".format(
+            i, backward_time - forward_time))
         print_multi_cuda_memory(args, "FSDP backward iter is done")
         optimizer.step()
         end_time = time.time()
@@ -111,7 +123,8 @@ def main():
         if i >= args.num_iters - 1:
             break
     averaged_time = total_time / args.num_iters
-    print("Finished running ", args.num_iters, " iters, averaged run time:", averaged_time)
+    print("Finished running ", args.num_iters, " iters, averaged run time:",
+          averaged_time)
 
 
 if __name__ == '__main__':

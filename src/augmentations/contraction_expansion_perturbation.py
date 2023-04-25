@@ -1,12 +1,10 @@
-from typing import Dict
 import re
-
 from random import Random
+from typing import Dict
 
 from . import match_case
 from .perturbation import Perturbation
 from .perturbation_description import PerturbationDescription
-
 
 CONTRACTION_MAP: Dict[str, str] = {
     "ain't": "is not",
@@ -109,7 +107,10 @@ class ContractionPerturbation(Perturbation):
 
     def __init__(self):
         self.contraction_map: Dict[str, str] = CONTRACTION_MAP
-        self.reverse_contraction_map: Dict[str, str] = {value: key for key, value in self.contraction_map.items()}
+        self.reverse_contraction_map: Dict[str, str] = {
+            value: key
+            for key, value in self.contraction_map.items()
+        }
         # Only contract things followed by a space to avoid contract end of sentence
         self.reverse_contraction_pattern = re.compile(
             r"\b({})\b ".format("|".join(self.reverse_contraction_map.keys())),
@@ -121,11 +122,11 @@ class ContractionPerturbation(Perturbation):
         return PerturbationDescription(name=self.name, robustness=True)
 
     def perturb(self, text: str, rng: Random) -> str:
+
         def cont(possible):
             match = possible.group(1)
             expanded_contraction = self.reverse_contraction_map.get(
-                match, self.reverse_contraction_map.get(match.lower())
-            )
+                match, self.reverse_contraction_map.get(match.lower()))
             return match_case(match, expanded_contraction) + " "
 
         return self.reverse_contraction_pattern.sub(cont, text)
@@ -159,9 +160,11 @@ class ExpansionPerturbation(Perturbation):
         return PerturbationDescription(name=self.name, robustness=True)
 
     def perturb(self, text: str, rng: Random) -> str:
+
         def expand_match(contraction):
             match = contraction.group(0)
-            expanded_contraction = self.contraction_map.get(match, self.contraction_map.get(match.lower()))
+            expanded_contraction = self.contraction_map.get(
+                match, self.contraction_map.get(match.lower()))
             return match_case(match, expanded_contraction)
 
         return self.contraction_pattern.sub(expand_match, text)

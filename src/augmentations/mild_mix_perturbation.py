@@ -1,12 +1,12 @@
 from random import Random
 
-from .perturbation_description import PerturbationDescription
-from .perturbation import Perturbation
-from .lowercase_perturbation import LowerCasePerturbation
 from .contraction_expansion_perturbation import ContractionPerturbation
-from .space_perturbation import SpacePerturbation
-from .misspelling_perturbation import MisspellingPerturbation
+from .lowercase_perturbation import LowerCasePerturbation
 from .mispunt_perturbation import MissPuntPerturbation
+from .misspelling_perturbation import MisspellingPerturbation
+from .perturbation import Perturbation
+from .perturbation_description import PerturbationDescription
+from .space_perturbation import SpacePerturbation
 
 
 class MildMixPerturbation(Perturbation):
@@ -51,7 +51,7 @@ class MildMixPerturbation(Perturbation):
 
         # Insert extra spaces between words
         # text = self.space_perturbation.perturb(text, rng) # too many spaces so disable it!
-        
+
         text = self.misspunt_perturbation.perturb(text, rng)
 
         return text

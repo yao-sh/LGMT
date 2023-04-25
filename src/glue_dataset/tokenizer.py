@@ -1,23 +1,25 @@
-from abc import ABC
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 
 from .bert_tokenization import FullTokenizer as FullBertTokenizer
 
 
 def build_tokenizer(args):
     """Initialize tokenizer."""
-    print('> building {} tokenizer ...'.format(args.tokenizer_type), flush=True)
+    print('> building {} tokenizer ...'.format(args.tokenizer_type),
+          flush=True)
 
     # Select and instantiate the tokenizer.
     assert args.vocab_file is not None
     if args.tokenizer_type == 'BertWordPieceLowerCase':
-        tokenizer = _BertWordPieceTokenizer(vocab_file=args.vocab_file,
-                                            lower_case=True,
-                                            vocab_extra_ids=args.vocab_extra_ids)
+        tokenizer = _BertWordPieceTokenizer(
+            vocab_file=args.vocab_file,
+            lower_case=True,
+            vocab_extra_ids=args.vocab_extra_ids)
     elif args.tokenizer_type == 'BertWordPieceCase':
-        tokenizer = _BertWordPieceTokenizer(vocab_file=args.vocab_file,
-                                            lower_case=False,
-                                            vocab_extra_ids=args.vocab_extra_ids)
+        tokenizer = _BertWordPieceTokenizer(
+            vocab_file=args.vocab_file,
+            lower_case=False,
+            vocab_extra_ids=args.vocab_extra_ids)
     else:
         raise NotImplementedError('{} tokenizer is not '
                                   'implemented.'.format(args.tokenizer_type))
@@ -39,8 +41,9 @@ def _vocab_size_with_padding(orig_vocab_size, args):
     while (after % multiple) != 0:
         after += 1
 
-    print(' > padded vocab (size: {}) with {} dummy tokens (new size: {})'
-          .format(orig_vocab_size, after - orig_vocab_size, after), flush=True)
+    print(' > padded vocab (size: {}) with {} dummy tokens (new size: {})'.
+          format(orig_vocab_size, after - orig_vocab_size, after),
+          flush=True)
     return after
 
 
@@ -60,13 +63,11 @@ class AbstractTokenizer(ABC):
     @abstractmethod
     def vocab(self):
         """Dictionary from vocab text token to id token."""
-        pass
 
     @property
     @abstractmethod
     def inv_vocab(self):
         """Dictionary from vocab id token to text token."""
-        pass
 
     @abstractmethod
     def tokenize(self, text):
@@ -111,7 +112,8 @@ class _BertWordPieceTokenizer(AbstractTokenizer):
         else:
             name = 'BERT Upper Case'
         super().__init__(name)
-        self.tokenizer = FullBertTokenizer(vocab_file, do_lower_case=lower_case)
+        self.tokenizer = FullBertTokenizer(vocab_file,
+                                           do_lower_case=lower_case)
         self.cls_id = self.tokenizer.vocab['[CLS]']
         self.sep_id = self.tokenizer.vocab['[SEP]']
         self.pad_id = self.tokenizer.vocab['[PAD]']
@@ -119,8 +121,7 @@ class _BertWordPieceTokenizer(AbstractTokenizer):
         self._additional_special_tokens = []
 
         # (dsachan) Add BOS and EOS tokens
-        SPECIAL_TOKENS = {'eos_token': '[EOS]',
-                          'bos_token': '[BOS]'}
+        SPECIAL_TOKENS = {'eos_token': '[EOS]', 'bos_token': '[BOS]'}
         self._bos_token = '[BOS]'
         self.add_token(self._bos_token)
         self._bos_token_id = self.vocab.get(self._bos_token)
@@ -226,7 +227,9 @@ class _BertWordPieceTokenizer(AbstractTokenizer):
     @property
     def additional_special_tokens_ids(self):
         """ Ids of all the additional special tokens in the vocabulary (list of integers)."""
-        return [self.vocab.get(token) for token in self._additional_special_tokens]
+        return [
+            self.vocab.get(token) for token in self._additional_special_tokens
+        ]
 
     @additional_special_tokens.setter
     def additional_special_tokens(self, value):

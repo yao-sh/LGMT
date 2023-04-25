@@ -5,6 +5,7 @@ import torch
 
 
 class GradScaler(ABC):
+
     def __init__(self, initial_scale, device=None):
         """Initialize scale value with the input initial scale."""
         assert initial_scale > 0.0
@@ -46,9 +47,14 @@ class ConstantGradScaler(GradScaler):
 
 class DynamicGradScaler(GradScaler):
 
-    def __init__(self, initial_scale, min_scale,
-                 growth_factor, backoff_factor,
-                 growth_interval, hysteresis, device=None):
+    def __init__(self,
+                 initial_scale,
+                 min_scale,
+                 growth_factor,
+                 backoff_factor,
+                 growth_interval,
+                 hysteresis,
+                 device=None):
         """"Grad scaler with dynamic scale that gets adjusted
         during training."""
         super(DynamicGradScaler, self).__init__(initial_scale, device=device)
@@ -59,10 +65,12 @@ class DynamicGradScaler(GradScaler):
         self.min_scale = torch.cuda.FloatTensor([min_scale], device=device)
         # Growth and backoff factors for the scale.
         assert growth_factor > 1.0
-        self.growth_factor = torch.cuda.FloatTensor([growth_factor], device=device)
+        self.growth_factor = torch.cuda.FloatTensor([growth_factor],
+                                                    device=device)
         assert backoff_factor < 1.0
         assert backoff_factor > 0.0
-        self.backoff_factor = torch.cuda.FloatTensor([backoff_factor], device=device)
+        self.backoff_factor = torch.cuda.FloatTensor([backoff_factor],
+                                                     device=device)
         # Interval over which if we don't see any inf/nan,
         # we will scale the grad scale by the growth factor.
         assert growth_interval > 0

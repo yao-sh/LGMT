@@ -15,8 +15,10 @@ def create_emtpy_gpt2(config):
     import torch.nn as nn
 
     _reset_parameters_linear = nn.Linear.reset_parameters
+
     def dummy(*args, **kargs):
         pass
+
     nn.Linear.reset_parameters = dummy
 
     # 1. disable init for faster initialization
@@ -28,7 +30,11 @@ def create_emtpy_gpt2(config):
 
     return model
 
-def load_decentralized_checkpoint(model, checkpoint_path, n_stages=2, n_layer_per_stage=6):
+
+def load_decentralized_checkpoint(model,
+                                  checkpoint_path,
+                                  n_stages=2,
+                                  n_layer_per_stage=6):
     input_path = checkpoint_path
 
     assert n_stages * n_layer_per_stage >= len(model.transformer.h)
@@ -38,16 +44,24 @@ def load_decentralized_checkpoint(model, checkpoint_path, n_stages=2, n_layer_pe
 
         print(f'loading stage {i}')
 
-        checkpoint = torch.load(os.path.join(input_path, f'prank_{i}_checkpoint.pt'), map_location=torch.device("cpu"))
+        checkpoint = torch.load(os.path.join(input_path,
+                                             f'prank_{i}_checkpoint.pt'),
+                                map_location=torch.device("cpu"))
 
         if i == 0:
-            _tmp = {k[len(f"{0}."):]:v for k,v in checkpoint.items() if k.startswith(f"0.")}
+            _tmp = {
+                k[len(f"{0}."):]: v
+                for k, v in checkpoint.items() if k.startswith(f"0.")
+            }
             # torch.save(_tmp, os.path.join(output_path, f'pytorch_embs.pt'))
             model.transformer.wte.weight.data[:] = _tmp['wte.weight']
             model.transformer.wpe.weight.data[:] = _tmp['wpe.weight']
 
             for j in range(n_layer_per_stage):
-                _tmp = {k[len(f"{j+1}."):]:v for k,v in checkpoint.items() if k.startswith(f"{j+1}.")}
+                _tmp = {
+                    k[len(f"{j+1}."):]: v
+                    for k, v in checkpoint.items() if k.startswith(f"{j+1}.")
+                }
                 if len(_tmp) == 0:
                     break
                 # torch.save(_tmp, os.path.join(output_path, f'pytorch_{j}.pt'))
@@ -55,14 +69,22 @@ def load_decentralized_checkpoint(model, checkpoint_path, n_stages=2, n_layer_pe
 
         elif i == n_stages - 1:
             for j in range(n_layer_per_stage):
-                _tmp = {k[len(f"{j}."):]:v for k,v in checkpoint.items() if k.startswith(f"{j}.")}
+                _tmp = {
+                    k[len(f"{j}."):]: v
+                    for k, v in checkpoint.items() if k.startswith(f"{j}.")
+                }
                 if 'lm_head.weight' in _tmp:
                     break
                 # torch.save(_tmp, os.path.join(output_path, f'pytorch_{i*n_layer_per_stage + j}.pt'))
-                model.transformer.h[i*n_layer_per_stage + j].load_state_dict(_tmp)
+                model.transformer.h[i * n_layer_per_stage +
+                                    j].load_state_dict(_tmp)
             else:
-                _tmp = {k[len(f"{n_layer_per_stage}."):]:v for k,v in checkpoint.items() if k.startswith(f"{n_layer_per_stage}.")}
-                
+                _tmp = {
+                    k[len(f"{n_layer_per_stage}."):]: v
+                    for k, v in checkpoint.items()
+                    if k.startswith(f"{n_layer_per_stage}.")
+                }
+
             if len(_tmp) == 0:
                 break
             # torch.save(_tmp, os.path.join(output_path, f'pytorch_lm_head.pt'))
@@ -74,11 +96,15 @@ def load_decentralized_checkpoint(model, checkpoint_path, n_stages=2, n_layer_pe
 
         else:
             for j in range(n_layer_per_stage):
-                _tmp = {k[len(f"{j}."):]:v for k,v in checkpoint.items() if k.startswith(f"{j}.")}
+                _tmp = {
+                    k[len(f"{j}."):]: v
+                    for k, v in checkpoint.items() if k.startswith(f"{j}.")
+                }
                 if len(_tmp) == 0:
                     break
                 # torch.save(_tmp, os.path.join(output_path, f'pytorch_{i*n_layer_per_stage + j}.pt'))
-                model.transformer.h[i*n_layer_per_stage + j].load_state_dict(_tmp)
+                model.transformer.h[i * n_layer_per_stage +
+                                    j].load_state_dict(_tmp)
 
     return model
 
@@ -88,9 +114,14 @@ if __name__ == '__main__':
     config = AutoConfig.from_pretrained('gpt2')
     tokenizer = AutoTokenizer.from_pretrained('gpt2')
     model = create_emtpy_gpt2(config)
-    load_decentralized_checkpoint(model, '/pretrained_models/checkpoints/gpt2-test/checkpoint_100', n_stages=2, n_layer_per_stage=6)
+    load_decentralized_checkpoint(
+        model,
+        '/pretrained_models/checkpoints/gpt2-test/checkpoint_100',
+        n_stages=2,
+        n_layer_per_stage=6)
 
     # test on cpu
-    ret = model.generate(**tokenizer('you are not', return_tensors='pt'), max_new_tokens=4)
+    ret = model.generate(**tokenizer('you are not', return_tensors='pt'),
+                         max_new_tokens=4)
 
     print(tokenizer.batch_decode(ret))

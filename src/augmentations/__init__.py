@@ -1,6 +1,3 @@
-
-
-
 def match_case(source_word: str, target_word: str) -> str:
     """Return a version of the target_word where the case matches the source_word."""
     # Check for all lower case source_word

@@ -1,10 +1,8 @@
 from abc import ABC, abstractmethod
-from dataclasses import replace
 from random import Random
-from typing import List, Optional
-
 
 from .perturbation_description import PerturbationDescription
+
 # from helm.benchmark.scenarios.scenario import Input, Instance, Reference, Output
 # from helm.common.object_spec import ObjectSpec, create_object
 
@@ -58,14 +56,11 @@ class Perturbation(ABC):
     @abstractmethod
     def perturb(self, text: str, rng: Random) -> str:
         """How to perturb the text."""
-        pass
 
 
 # class PerturbationSpec(ObjectSpec):
 class PerturbationSpec:
     """Defines how to instantiate Perturbation."""
-
-    pass
 
 
 def create_perturbation(perturbation_spec: PerturbationSpec) -> Perturbation:

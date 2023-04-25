@@ -1,7 +1,7 @@
-from dataclasses import dataclass
 import json
-from pathlib import Path
 import re
+from dataclasses import dataclass
+from pathlib import Path
 from random import Random
 from typing import Dict, List
 
@@ -39,20 +39,26 @@ class MisspellingPerturbation(Perturbation):
                 common misspelling (if we have a common misspelling for the word)
         """
         self.prob: float = prob
-        misspellings_file = Path(__file__).resolve().expanduser().parent / "correct_to_misspelling.json"
+        misspellings_file = Path(__file__).resolve().expanduser(
+        ).parent / "correct_to_misspelling.json"
         with open(misspellings_file, "r") as f:
             self.correct_to_misspelling: Dict[str, List[str]] = json.load(f)
-        self.mispelling_pattern = re.compile(r"\b({})\b".format("|".join(self.correct_to_misspelling.keys())))
+        self.mispelling_pattern = re.compile(r"\b({})\b".format("|".join(
+            self.correct_to_misspelling.keys())))
 
     @property
     def description(self) -> PerturbationDescription:
-        return MisspellingPerturbation.Description(name=self.name, robustness=True, prob=self.prob)
+        return MisspellingPerturbation.Description(name=self.name,
+                                                   robustness=True,
+                                                   prob=self.prob)
 
     def perturb(self, text: str, rng: Random) -> str:
+
         def mispell(match: re.Match) -> str:
             word = match.group(1)
             if rng.random() < self.prob:
-                mispelled_word = str(rng.choice(self.correct_to_misspelling[word]))
+                mispelled_word = str(
+                    rng.choice(self.correct_to_misspelling[word]))
                 return match_case(word, mispelled_word)
             else:
                 return word

@@ -7,7 +7,7 @@ from .dist_no_pipeline_async import NopipeAsync
 
 
 def get_pp_module(args, config, device, use_dp):
-    
+
     if args.pp_mode == 'gpipe':
         return GpipeAsync(args, config, device, use_dp)
     elif args.pp_mode == 'nopipe':
@@ -24,21 +24,28 @@ def get_pp_module(args, config, device, use_dp):
     else:
         print("Not recognize this pipeline parallel mode.")
         assert False
-        
+
+
 def get_deberta_pp_module(args, config, device, use_dp):
-    
+
     from modules.dist_deberta_pp_module import DebertaStageFirst, DebertaStageLast, DebertaStageMiddle
-    
+
     if args.pp_mode == 'gpipe':
         return GpipeAsync(
-            args, config, device, use_dp,
+            args,
+            config,
+            device,
+            use_dp,
             _StageFirst=DebertaStageFirst,
             _StageLast=DebertaStageLast,
             _StageMiddle=DebertaStageMiddle,
         )
     elif args.pp_mode == 'gpipe_sync':
         return GpipeSync(
-            args, config, device, use_dp,
+            args,
+            config,
+            device,
+            use_dp,
             _StageFirst=DebertaStageFirst,
             _StageLast=DebertaStageLast,
             _StageMiddle=DebertaStageMiddle,
@@ -48,7 +55,10 @@ def get_deberta_pp_module(args, config, device, use_dp):
         return Pipe1F1BAsync(args, config, device, use_dp)
     elif args.pp_mode == 'gpipe_act_comp':
         return GpipeAsyncActivationCompression(
-            args, config, device, use_dp,
+            args,
+            config,
+            device,
+            use_dp,
             _StageFirst=DebertaStageFirst,
             _StageLast=DebertaStageLast,
             _StageMiddle=DebertaStageMiddle,

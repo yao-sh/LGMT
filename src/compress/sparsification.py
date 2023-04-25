@@ -1,6 +1,6 @@
-import torch
 import cupy
 import numpy as np
+import torch
 
 from .utils import *
 
@@ -16,6 +16,7 @@ def topr(x, ratio):
     values = x.data[masks.bool()]
     return values, masks
 
+
 def topk(x, k, return_values=True, return_indices=False):
     k = max(k, 1)
     x_flat = x.view(-1)
@@ -23,19 +24,21 @@ def topk(x, k, return_values=True, return_indices=False):
     masks = torch.zeros_like(x_flat, dtype=torch.uint8)
     masks[indexes] = 1
     masks = masks.view(x.shape)
-    ret = (masks,)
+    ret = (masks, )
     if return_values:
         values = x.data[masks.bool()]
-        ret = (values,) + ret
+        ret = (values, ) + ret
     if return_indices:
-        ret = ret + (indexes,)
+        ret = ret + (indexes, )
     return ret
-    
+
+
 def compress_topr(x, r):
     values, masks = topr(x, r)
     masks = pack_uint8_tensor(masks)
     return values, masks
-    
+
+
 def compress_topk(x, k, return_indices=False):
     if return_indices:
         values, masks, indices = topk(x, k, return_indices=return_indices)
@@ -45,6 +48,7 @@ def compress_topk(x, k, return_indices=False):
         values, masks = topk(x, k, return_indices=return_indices)
         masks = pack_uint8_tensor(masks)
         return values, masks
+
 
 def decompress_topk(values, masks, original_shape):
     masks = unpack_uint8_tensor(masks)

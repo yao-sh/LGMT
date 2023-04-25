@@ -1,31 +1,27 @@
-from dataclasses import dataclass
 import json
 import os
-from random import Random
 import re
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, List
+from random import Random
+from typing import Dict, List, Optional
 
-from . import match_case, ensure_file_downloaded
-from .perturbation_description import PerturbationDescription
+from . import ensure_file_downloaded, match_case
 from .perturbation import Perturbation
+from .perturbation_description import PerturbationDescription
 
 
 class DialectPerturbation(Perturbation):
     """Individual fairness perturbation for dialect."""
-
     """ Short unique identifier of the perturbation (e.g., extra_space) """
     name: str = "dialect"
 
     should_perturb_references: bool = True
-
     """ Output path to store external files and folders """
     OUTPUT_PATH = os.path.join("benchmark_output", "perturbations", name)
-
     """ Dictionary mapping dialects to one another """
     SAE = "SAE"
     AAVE = "AAVE"
-
     """ Dictionary containing the URIs for the dialect mapping dictionaries
 
     Keys are tuples of the form (source_class, target_class), such as
@@ -39,7 +35,8 @@ class DialectPerturbation(Perturbation):
 
     """
     MAPPING_DICT_URIS = {
-        (SAE, AAVE): "https://worksheets.codalab.org/rest/bundles/0x3523e02bd46b42bcad783292b40b4e38/contents/blob/"
+        (SAE, AAVE):
+        "https://worksheets.codalab.org/rest/bundles/0x3523e02bd46b42bcad783292b40b4e38/contents/blob/"
     }
 
     @dataclass(frozen=True)
@@ -51,7 +48,11 @@ class DialectPerturbation(Perturbation):
         target_class: str = ""
         mapping_file_path: Optional[str] = None
 
-    def __init__(self, prob: float, source_class: str, target_class: str, mapping_file_path: Optional[str] = None):
+    def __init__(self,
+                 prob: float,
+                 source_class: str,
+                 target_class: str,
+                 mapping_file_path: Optional[str] = None):
         """Initialize the dialect perturbation.
 
         If mapping_file_path is not provided, (source_class, target_class)
@@ -117,7 +118,9 @@ class DialectPerturbation(Perturbation):
             raise ValueError(msg)
         file_name = f"{self.source_class}_to_{self.target_class}_mapping.json"
         target_file_path: str = os.path.join(self.output_path, file_name)
-        ensure_file_downloaded(source_url=self.MAPPING_DICT_URIS[mapping_tuple], target_path=target_file_path)
+        ensure_file_downloaded(
+            source_url=self.MAPPING_DICT_URIS[mapping_tuple],
+            target_path=target_file_path)
         return target_file_path
 
     def load_mapping_dict(self) -> Dict[str, List[str]]:
@@ -130,12 +133,14 @@ class DialectPerturbation(Perturbation):
 
         # Substitution function
         def sub_func(m: re.Match):
-            match_str = m.group(0)  # The full match (e.g. " With ", " With,", " With.")
+            match_str = m.group(
+                0)  # The full match (e.g. " With ", " With,", " With.")
             word = m.group(1)  # Captured group (e.g. "With")
             if rng.uniform(0, 1) < self.prob:
                 synonyms = self.mapping_dict[word.lower()]
                 synonym = rng.choice(synonyms)  # Synonym (e.g. "wit")
-                synonym = match_case(word, synonym)  # Synoynm with matching case (e.g. "Wit")
+                synonym = match_case(
+                    word, synonym)  # Synoynm with matching case (e.g. "Wit")
                 match_str = match_str.replace(
                     word, synonym
                 )  # Synonym placed in the matching group (e.g. " Wit ", " Wit,", " Wit.")

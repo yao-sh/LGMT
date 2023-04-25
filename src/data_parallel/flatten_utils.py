@@ -12,14 +12,19 @@ def _assert_contiguous(tensors):
 def flatten_params(param_set, chunk=None):
     params = [p for p in param_set]
     weights = [p.data for p in params]
-    grads = [p.grad.data if p.grad is not None else torch.zeros_like(p.data) for p in params]
+    grads = [
+        p.grad.data if p.grad is not None else torch.zeros_like(p.data)
+        for p in params
+    ]
     sizes = [p.numel() for p in params]
     total_size = sum(sizes)
     if chunk:
-        total_size = ((total_size+chunk-1)//chunk)*chunk
+        total_size = ((total_size + chunk - 1) // chunk) * chunk
 
-    flatten_weights_tensor = torch.zeros(total_size, dtype=weights[0].dtype).to(weights[0].device)
-    flatten_grads_tensor = torch.zeros(total_size, dtype=weights[0].dtype).to(weights[0].device)
+    flatten_weights_tensor = torch.zeros(
+        total_size, dtype=weights[0].dtype).to(weights[0].device)
+    flatten_grads_tensor = torch.zeros(total_size, dtype=weights[0].dtype).to(
+        weights[0].device)
     flatten_weights_storage = flatten_weights_tensor.storage()
     flatten_grads_storage = flatten_grads_tensor.storage()
 
@@ -35,9 +40,12 @@ def flatten_params(param_set, chunk=None):
 
     offset = 0
     for i in range(len(params)):
-        flatten_weights_tensor[offset: offset + weights[i].numel()] = weights[i].reshape(-1)
-        flatten_grads_tensor[offset: offset + grads[i].numel()] = grads[i].reshape(-1)
-        set_storage(params[i], flatten_weights_storage, flatten_grads_storage, offset)
+        flatten_weights_tensor[offset:offset +
+                               weights[i].numel()] = weights[i].reshape(-1)
+        flatten_grads_tensor[offset:offset +
+                             grads[i].numel()] = grads[i].reshape(-1)
+        set_storage(params[i], flatten_weights_storage, flatten_grads_storage,
+                    offset)
         offset += sizes[i]
 
     weight_tensors = [p.data for p in params]
@@ -47,10 +55,11 @@ def flatten_params(param_set, chunk=None):
     _assert_contiguous(grad_tensors)
 
     with torch.no_grad():
-        flatten_para = torch.nn.Parameter(flatten_weights_tensor, requires_grad=False)
+        flatten_para = torch.nn.Parameter(flatten_weights_tensor,
+                                          requires_grad=False)
         flatten_para.grad = flatten_grads_tensor
         return flatten_para
-    
+
 
 def flatten_tensors(tensor_set, chunk=None):
     tensors = [p for p in tensor_set]
@@ -58,9 +67,10 @@ def flatten_tensors(tensor_set, chunk=None):
     sizes = [p.numel() for p in tensors]
     total_size = sum(sizes)
     if chunk:
-        total_size = ((total_size+chunk-1)//chunk)*chunk
+        total_size = ((total_size + chunk - 1) // chunk) * chunk
 
-    flatten_weights_tensor = torch.zeros(total_size, dtype=weights[0].dtype).to(weights[0].device)
+    flatten_weights_tensor = torch.zeros(
+        total_size, dtype=weights[0].dtype).to(weights[0].device)
     flatten_weights_storage = flatten_weights_tensor.storage()
 
     def set_storage(param, weight_storage, storage_offset):
@@ -71,7 +81,8 @@ def flatten_tensors(tensor_set, chunk=None):
 
     offset = 0
     for i in range(len(tensors)):
-        flatten_weights_tensor[offset: offset + weights[i].numel()] = weights[i].reshape(-1)
+        flatten_weights_tensor[offset:offset +
+                               weights[i].numel()] = weights[i].reshape(-1)
         set_storage(tensors[i], flatten_weights_storage, offset)
         offset += sizes[i]
 

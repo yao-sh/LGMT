@@ -1,5 +1,4 @@
 import argparse
-import time
 import torch
 from torch import nn
 from torch.profiler import profile, record_function, ProfilerActivity
@@ -17,8 +16,11 @@ def benchmark_iter(layers, fake_batch, output, external_gradient):
 def benchmark_transformer_layer(args, device):
     module_list = []
     for _ in range(args.num_layers):
-        module_list.append(GPTTransformerLayer(args.embedding_dim, args.num_heads,
-                                               4 * args.embedding_dim, use_checkpoint=args.use_checkpoint))
+        module_list.append(
+            GPTTransformerLayer(args.embedding_dim,
+                                args.num_heads,
+                                4 * args.embedding_dim,
+                                use_checkpoint=args.use_checkpoint))
     layers = nn.Sequential(*module_list).to(device).half()
     print(layers)
 
@@ -26,28 +28,50 @@ def benchmark_transformer_layer(args, device):
 
     # activities=[ProfilerActivity.CUDA]
     n = 96
-    fake_input_batches = [torch.zeros(batch_shape, requires_grad=True, device=device, dtype=torch.float16)
-                          for _ in range(n)]
+    fake_input_batches = [
+        torch.zeros(batch_shape,
+                    requires_grad=True,
+                    device=device,
+                    dtype=torch.float16) for _ in range(n)
+    ]
     for micro_batch in fake_input_batches:
         if micro_batch.grad is None:
             micro_batch.grad = torch.zeros_like(micro_batch.data)
 
-    output_batches = [torch.zeros(batch_shape, requires_grad=True, device=device, dtype=torch.float16)
-                      for _ in range(n)]
-    external_gradients = [torch.full(batch_shape, 1.0, requires_grad=False, device=device, dtype=torch.float16)
-                          for _ in range(n)]
+    output_batches = [
+        torch.zeros(batch_shape,
+                    requires_grad=True,
+                    device=device,
+                    dtype=torch.float16) for _ in range(n)
+    ]
+    external_gradients = [
+        torch.full(batch_shape,
+                   1.0,
+                   requires_grad=False,
+                   device=device,
+                   dtype=torch.float16) for _ in range(n)
+    ]
     for i in range(n):
         if i == 10:
             torch.cuda.current_stream().synchronize()
-            with profile(profile_memory=True, record_shapes=True, with_flops=True, with_modules=True) as prof:
-                benchmark_iter(layers, fake_input_batches[i], output_batches[i], external_gradients[i])
+            with profile(profile_memory=True,
+                         record_shapes=True,
+                         with_flops=True,
+                         with_modules=True) as prof:
+                benchmark_iter(layers, fake_input_batches[i],
+                               output_batches[i], external_gradients[i])
                 torch.cuda.current_stream().synchronize()
                 GPUtil.showUtilization()
         else:
-            benchmark_iter(layers, fake_input_batches[i], output_batches[i], external_gradients[i])
+            benchmark_iter(layers, fake_input_batches[i], output_batches[i],
+                           external_gradients[i])
 
-        print("Max memory allocated: {} GB.".format(torch.cuda.max_memory_allocated(device=device)/1024/1024/1024))
-        print("Max memory reserved: {} GB.".format(torch.cuda.max_memory_reserved(device=device)/1024/1024/1024))
+        print("Max memory allocated: {} GB.".format(
+            torch.cuda.max_memory_allocated(device=device) / 1024 / 1024 /
+            1024))
+        print("Max memory reserved: {} GB.".format(
+            torch.cuda.max_memory_reserved(device=device) / 1024 / 1024 /
+            1024))
         print(torch.cuda.memory_summary())
         print(torch.cuda.memory_stats())
         print(torch.cuda.memory_snapshot())
@@ -59,21 +83,46 @@ def benchmark_transformer_layer(args, device):
 
 def main():
     parser = argparse.ArgumentParser(description='Gpipe-GPT3')
-    parser.add_argument('--use-checkpoint', default=True, type=lambda x: (str(x).lower() == 'true'),
-                        help='if this is set to True, will use check point for activation recompute')
-    parser.add_argument('--use-cuda', default=True, type=lambda x: (str(x).lower() == 'true'),
+    parser.add_argument(
+        '--use-checkpoint',
+        default=True,
+        type=lambda x: (str(x).lower() == 'true'),
+        help=
+        'if this is set to True, will use check point for activation recompute'
+    )
+    parser.add_argument('--use-cuda',
+                        default=True,
+                        type=lambda x: (str(x).lower() == 'true'),
                         help='if this is set to True, will use cuda to train')
-    parser.add_argument('--cuda-id', type=int, default=0, metavar='N',
+    parser.add_argument('--cuda-id',
+                        type=int,
+                        default=0,
+                        metavar='N',
                         help='cuda index, if the instance has multiple GPUs.')
-    parser.add_argument('--batch-size', type=int, default=1, metavar='N',
+    parser.add_argument('--batch-size',
+                        type=int,
+                        default=1,
+                        metavar='N',
                         help='input batch size for training (default: 100)')
-    parser.add_argument('--num-layers', type=int, default=3, metavar='N',
+    parser.add_argument('--num-layers',
+                        type=int,
+                        default=3,
+                        metavar='N',
                         help='-')
-    parser.add_argument('--seq-length', type=int, default=2048, metavar='N',
+    parser.add_argument('--seq-length',
+                        type=int,
+                        default=2048,
+                        metavar='N',
                         help='-')
-    parser.add_argument('--embedding-dim', type=int, default=2048, metavar='N',
+    parser.add_argument('--embedding-dim',
+                        type=int,
+                        default=2048,
+                        metavar='N',
                         help='-')
-    parser.add_argument('--num-heads', type=int, default=16, metavar='N',
+    parser.add_argument('--num-heads',
+                        type=int,
+                        default=16,
+                        metavar='N',
                         help='-')
     args = parser.parse_args()
     assert args.use_cuda and torch.cuda.is_available()

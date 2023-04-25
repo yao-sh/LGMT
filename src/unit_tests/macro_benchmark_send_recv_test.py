@@ -25,8 +25,9 @@ def test_sync_send_recv_delay(args, device, communicator):
         if args.use_cuda:
             torch.cuda.synchronize()
         end_time = time.time()
-        estimated_delay = (end_time - start_time)/2
-        print('Send tensor is done: estimated delay:', estimated_delay * 1000, "ms.")
+        estimated_delay = (end_time - start_time) / 2
+        print('Send tensor is done: estimated delay:', estimated_delay * 1000,
+              "ms.")
     elif args.rank == 1:
         recv_tensor = torch.zeros(1, dtype=torch.float32, device=device)
         if args.dist_backend == 'nccl':
@@ -42,15 +43,19 @@ def test_sync_send_recv_delay(args, device, communicator):
         if args.use_cuda:
             torch.cuda.synchronize()
         end_time = time.time()
-        estimated_delay = (end_time - start_time)/2
-        print('Recv tensor is done: estimated delay:', estimated_delay * 1000, "ms.")
+        estimated_delay = (end_time - start_time) / 2
+        print('Recv tensor is done: estimated delay:', estimated_delay * 1000,
+              "ms.")
         recv_tensor += random.random()
         if args.use_cuda:
             torch.cuda.synchronize()
     return estimated_delay
 
 
-def test_sync_send_recv_bandwidth(args, device, communicator, estimated_delay=0):
+def test_sync_send_recv_bandwidth(args,
+                                  device,
+                                  communicator,
+                                  estimated_delay=0):
     print("<==== Test bandwidth ====>")
     if args.rank == 0:
         # send_tensor = torch.arange(args.dim, dtype=torch.float32, device=device)
@@ -70,9 +75,11 @@ def test_sync_send_recv_bandwidth(args, device, communicator, estimated_delay=0)
             torch.cuda.synchronize()
         end_time = time.time()
         total_time = end_time - start_time
-        estimated_bandwidth = 8 * 4 * args.dim / (total_time - estimated_delay) / 1024 / 1024 / 1024
-        print('Send tensor is done: tensor size:<', args.dim, "> takes:", total_time, "second, estimated bandwidth:",
-              estimated_bandwidth, "Gbps.")
+        estimated_bandwidth = 8 * 4 * args.dim / (
+            total_time - estimated_delay) / 1024 / 1024 / 1024
+        print('Send tensor is done: tensor size:<', args.dim, "> takes:",
+              total_time, "second, estimated bandwidth:", estimated_bandwidth,
+              "Gbps.")
     elif args.rank == 1:
         recv_tensor = torch.zeros(args.dim, dtype=torch.float32, device=device)
         if args.dist_backend == 'nccl':
@@ -89,9 +96,11 @@ def test_sync_send_recv_bandwidth(args, device, communicator, estimated_delay=0)
             torch.cuda.synchronize()
         end_time = time.time()
         total_time = end_time - start_time
-        estimated_bandwidth = 8 * 4 * args.dim / (total_time - estimated_delay) / 1024 / 1024 / 1024
-        print('Send tensor is done: tensor size:<', args.dim, "> takes:", total_time, "second, estimated bandwidth:",
-              estimated_bandwidth, "Gbps.")
+        estimated_bandwidth = 8 * 4 * args.dim / (
+            total_time - estimated_delay) / 1024 / 1024 / 1024
+        print('Send tensor is done: tensor size:<', args.dim, "> takes:",
+              total_time, "second, estimated bandwidth:", estimated_bandwidth,
+              "Gbps.")
         recv_tensor += random.random()
         if args.use_cuda:
             torch.cuda.synchronize()
@@ -100,21 +109,45 @@ def test_sync_send_recv_bandwidth(args, device, communicator, estimated_delay=0)
 
 def main():
     parser = argparse.ArgumentParser(description='Test PyTorch Distributed')
-    parser.add_argument('--dist-backend', type=str, default='gloo', metavar='S',
+    parser.add_argument('--dist-backend',
+                        type=str,
+                        default='gloo',
+                        metavar='S',
                         help='PyTorch backend type')
-    parser.add_argument('--dist-url', type=str, default='tcp://127.0.0.1:9000', metavar='S',
+    parser.add_argument('--dist-url',
+                        type=str,
+                        default='tcp://127.0.0.1:9000',
+                        metavar='S',
                         help='master ip for distributed PyTorch')
-    parser.add_argument('--world-size', type=int, default=2, metavar='D',
+    parser.add_argument('--world-size',
+                        type=int,
+                        default=2,
+                        metavar='D',
                         help='world size (default: 2)')
-    parser.add_argument('--rank', type=int, default=0, metavar='R',
+    parser.add_argument('--rank',
+                        type=int,
+                        default=0,
+                        metavar='R',
                         help='rank for distributed PyTorch')
-    parser.add_argument('--dim', type=int, default=4*2048*2048, metavar='R',
-                        help='size of the tensor to be sent.') # this is an approximated size of a macro-bench
-    parser.add_argument('--use-cuda', default=False, type=lambda x: (str(x).lower() == 'true'),
+    parser.add_argument('--dim',
+                        type=int,
+                        default=4 * 2048 * 2048,
+                        metavar='R',
+                        help='size of the tensor to be sent.'
+                        )  # this is an approximated size of a macro-bench
+    parser.add_argument('--use-cuda',
+                        default=False,
+                        type=lambda x: (str(x).lower() == 'true'),
                         help='if this is set to True, will use cuda to train')
-    parser.add_argument('--cuda-id', type=int, default=0, metavar='N',
+    parser.add_argument('--cuda-id',
+                        type=int,
+                        default=0,
+                        metavar='N',
                         help='cuda index, if the instance has multiple GPUs.')
-    parser.add_argument('--iter', type=int, default=10, metavar='R',
+    parser.add_argument('--iter',
+                        type=int,
+                        default=10,
+                        metavar='R',
                         help='number of iterations for benchmark.')
     args = parser.parse_args()
 
@@ -124,11 +157,15 @@ def main():
     else:
         device = torch.device('cpu')
     if args.dist_backend == 'cupy_nccl':
-        communicator = NCCLCommunicator(rank=args.rank, intra_gpu_rank=args.cuda_id,
-                                        world_size=args.world_size, master_ip=args.dist_url)
+        communicator = NCCLCommunicator(rank=args.rank,
+                                        intra_gpu_rank=args.cuda_id,
+                                        world_size=args.world_size,
+                                        master_ip=args.dist_url)
     else:
-        dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
-                                rank=args.rank, world_size=args.world_size)
+        dist.init_process_group(backend=args.dist_backend,
+                                init_method=args.dist_url,
+                                rank=args.rank,
+                                world_size=args.world_size)
         communicator = dist
 
     estimated_delay = 0
@@ -136,25 +173,30 @@ def main():
         if i == 0:
             test_sync_send_recv_delay(args, device, communicator)
         else:
-            estimated_delay += test_sync_send_recv_delay(args, device, communicator)
+            estimated_delay += test_sync_send_recv_delay(
+                args, device, communicator)
         time.sleep(1)
     estimated_delay /= args.iter
-    print("<=====Averaged estimated delay: ", estimated_delay * 1000, "ms.=====>")
+    print("<=====Averaged estimated delay: ", estimated_delay * 1000,
+          "ms.=====>")
     estimated_bandwidth = 0
     e2e_time = 0
     for i in range(args.iter + 1):
         if i == 0:
-            test_sync_send_recv_bandwidth(args, device, communicator, estimated_delay)
+            test_sync_send_recv_bandwidth(args, device, communicator,
+                                          estimated_delay)
         else:
-            current_bandwidth, current_time = test_sync_send_recv_bandwidth(args, device, communicator, estimated_delay)
+            current_bandwidth, current_time = test_sync_send_recv_bandwidth(
+                args, device, communicator, estimated_delay)
             estimated_bandwidth += current_bandwidth
             e2e_time += current_time
         time.sleep(1)
     estimated_bandwidth /= args.iter
     e2e_time /= args.iter
-    print("<=====Averaged estimated bandwidth: ", estimated_bandwidth, "Gbps=====>")
-    print("<=====Averaged end to end time: ", e2e_time, "s for sending <", 4 * args.dim / 1024/1024,
-          "> MB data=====>")
+    print("<=====Averaged estimated bandwidth: ", estimated_bandwidth,
+          "Gbps=====>")
+    print("<=====Averaged end to end time: ", e2e_time, "s for sending <",
+          4 * args.dim / 1024 / 1024, "> MB data=====>")
 
 
 if __name__ == '__main__':

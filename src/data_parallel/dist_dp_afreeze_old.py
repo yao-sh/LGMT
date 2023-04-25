@@ -1,46 +1,50 @@
+import math
+import os
+
 import torch
+import torch.cuda
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.cuda
-import math
-from comm.comm_utils import *
-from .flatten_utils import flatten_params, flatten_tensors
-from compress.fixpoint import *
-from compress import flag
 
-import os
+from comm.comm_utils import *
+from compress import flag
+from compress.fixpoint import *
+
+from .flatten_utils import flatten_params, flatten_tensors
 
 if 'SYNC_STEPS' not in os.environ:
     sync_steps = 25
     sync_prob = 1.0 / sync_steps
     global_sync_steps = 1
-    
+
 else:
     sync_steps = int(os.environ['SYNC_STEPS'])
     sync_prob = 1.0 / sync_steps
     global_sync_steps = 1
 
+
 @torch.no_grad()
 def step_update(self, dp_optimizer=None):
-    
+
     fp16_wrapper = None
-    
+
     if not isinstance(self, torch.optim.AdamW):
         fp16_wrapper, self = self, self.optimizer
         assert isinstance(self, torch.optim.AdamW)
         use_fp16 = (fp16_wrapper is not None)
-        
+
     if fp16_wrapper is not None:
         fp16_wrapper._copy_model_grads_to_optimizer_grads()
 
-        found_inf_flag = fp16_wrapper._unscale_optimizer_grads_and_check_for_nan()
+        found_inf_flag = fp16_wrapper._unscale_optimizer_grads_and_check_for_nan(
+        )
         fp16_wrapper.grad_scaler.update(found_inf_flag)
 
         # If we found inf/nan, skip the update.
         if found_inf_flag:
             print("!!! Warning: find inf in fp16 optimizer-step() !!!")
             # return False
-        
+
         for params in fp16_wrapper.fp32_from_float16_groups:
             for p in params:
                 p.grad = p.grad.nan_to_num()
@@ -52,7 +56,9 @@ def step_update(self, dp_optimizer=None):
                 continue
             grad = p.grad.data
             if grad.is_sparse:
-                raise RuntimeError("Adam does not support sparse gradients, please consider SparseAdam instead")
+                raise RuntimeError(
+                    "Adam does not support sparse gradients, please consider SparseAdam instead"
+                )
 
             state = self.state[p]
 
@@ -60,12 +66,15 @@ def step_update(self, dp_optimizer=None):
             if len(state) == 0:
                 state["step"] = 0
                 # Exponential moving average of gradient values
-                state["exp_avg"] = torch.zeros_like(p.data, dtype=(torch.float16 if use_fp16 else torch.float32))
+                state["exp_avg"] = torch.zeros_like(
+                    p.data,
+                    dtype=(torch.float16 if use_fp16 else torch.float32))
                 # Exponential moving average of squared gradient values
                 state["exp_avg_sq"] = torch.zeros_like(p.data)
                 state["first"] = True
-                
-            if "train_mask" in state and state["train_mask"].dtype != torch.bool:
+
+            if "train_mask" in state and state[
+                    "train_mask"].dtype != torch.bool:
                 print(f"wrong train_mask.dtype: {state['train_mask'].dtype}")
                 print('reinit it...')
                 state["train_mask"] = torch.ones_like(p, dtype=torch.bool)
@@ -83,14 +92,17 @@ def step_update(self, dp_optimizer=None):
             denom = exp_avg_sq.sqrt().add_(group["eps"])
 
             step_size = group["lr"]
-#             if group["correct_bias"]:  # No bias correction for Bert
-            bias_correction1 = 1.0 - beta1 ** state["step"]
-            bias_correction2 = 1.0 - beta2 ** state["step"]
-            step_size = step_size * math.sqrt(bias_correction2) / bias_correction1
-            
+            #             if group["correct_bias"]:  # No bias correction for Bert
+            bias_correction1 = 1.0 - beta1**state["step"]
+            bias_correction2 = 1.0 - beta2**state["step"]
+            step_size = step_size * math.sqrt(
+                bias_correction2) / bias_correction1
+
             if 'train_mask' in state:
                 # reset comm part of params
-                p.data.addcdiv_(exp_avg * state["train_mask"].to(p.dtype), denom, value=-step_size)
+                p.data.addcdiv_(exp_avg * state["train_mask"].to(p.dtype),
+                                denom,
+                                value=-step_size)
             else:
                 p.data.addcdiv_(exp_avg.to(p.dtype), denom, value=-step_size)
 
@@ -99,7 +111,8 @@ def step_update(self, dp_optimizer=None):
                     if state["first"]:
                         print('first sync...')
                         state["first"] = False
-                        state["train_mask"] = torch.ones_like(p, dtype=torch.bool)
+                        state["train_mask"] = torch.ones_like(p,
+                                                              dtype=torch.bool)
                         state["train_mask"].view(-1)[::sync_steps] = False
                     else:
                         print(f'sync... at {state["step"]}')
@@ -115,21 +128,29 @@ def step_update(self, dp_optimizer=None):
                     dp_optimizer.dp_comm.all_reduce(p.data)
             else:
                 print('skipping')
-            
+
             if group["weight_decay"] > 0.0:
                 if 'train_mask' in state:
-                    p.data.add_(p.data * state["train_mask"].to(p.dtype), alpha=-group["lr"] * group["weight_decay"])
+                    p.data.add_(p.data * state["train_mask"].to(p.dtype),
+                                alpha=-group["lr"] * group["weight_decay"])
                 else:
-                    p.data.add_(p.data, alpha=-group["lr"] * group["weight_decay"])
-                
+                    p.data.add_(p.data,
+                                alpha=-group["lr"] * group["weight_decay"])
+
     if fp16_wrapper is not None:
         fp16_wrapper._copy_optimizer_params_to_model_params()
         # Successful update.
         return True
-            
+
 
 class AFreezeDP:
-    def __init__(self, args, device, module: torch.nn.Module, optimizer: torch.optim.Optimizer = None, flatten=False):
+
+    def __init__(self,
+                 args,
+                 device,
+                 module: torch.nn.Module,
+                 optimizer: torch.optim.Optimizer = None,
+                 flatten=False):
         assert not flatten
         self.dp_bits = args.dp_bits
         self.flatten = flatten
@@ -142,41 +163,57 @@ class AFreezeDP:
         self.pp_rank = get_pipeline_parallel_rank()
         self.dp_comm_stream = torch.cuda.Stream(device=device, priority=-1)
         self.torch_optim_comp_stream = torch.cuda.default_stream(device=device)
-        self.backward_ready_event = torch.cuda.Event(enable_timing=self.enable_tidy_profiling, blocking=False)
-        self.sync_gradients_ready_event = torch.cuda.Event(enable_timing=self.enable_tidy_profiling, blocking=False)
-        self.optimizer_step_ready_event = torch.cuda.Event(enable_timing=self.enable_tidy_profiling, blocking=False)
-        
-        self.mmt_start_event = torch.cuda.Event(enable_timing=self.enable_tidy_profiling, blocking=False)
-        self.mmt_ready_event = torch.cuda.Event(enable_timing=self.enable_tidy_profiling, blocking=False)
+        self.backward_ready_event = torch.cuda.Event(
+            enable_timing=self.enable_tidy_profiling, blocking=False)
+        self.sync_gradients_ready_event = torch.cuda.Event(
+            enable_timing=self.enable_tidy_profiling, blocking=False)
+        self.optimizer_step_ready_event = torch.cuda.Event(
+            enable_timing=self.enable_tidy_profiling, blocking=False)
+
+        self.mmt_start_event = torch.cuda.Event(
+            enable_timing=self.enable_tidy_profiling, blocking=False)
+        self.mmt_ready_event = torch.cuda.Event(
+            enable_timing=self.enable_tidy_profiling, blocking=False)
 
         self.module = module
         assert optimizer is not None
         self.optimizer = optimizer
         num_paras, element_size = self._compute_total_para_num()
-        print("Total number of parameters: {}, element size: {}, total size {} MB."
-              .format(num_paras, element_size, num_paras * element_size // 1024 // 1024))
+        print(
+            "Total number of parameters: {}, element size: {}, total size {} MB."
+            .format(num_paras, element_size,
+                    num_paras * element_size // 1024 // 1024))
 
         self.th = torch.zeros(1, dtype=torch.uint8, device=device)
-        
-        
+
         if self.enable_tidy_profiling:
             self.global_rank = args.rank
             self.init_event = None
             self.init_time_stamp = None
 
             # assert self.flatten
-            self.sync_gradients_start_event = torch.cuda.Event(enable_timing=True, blocking=False)
-            self.optimizer_step_start_event = torch.cuda.Event(enable_timing=True, blocking=False)
-            
-            self.gather_start_event = torch.cuda.Event(enable_timing=True, blocking=False)
-            self.sync_start_event = torch.cuda.Event(enable_timing=True, blocking=False)
-            self.gather_end_event = torch.cuda.Event(enable_timing=True, blocking=False)
-            self.sync_end_event = torch.cuda.Event(enable_timing=True, blocking=False)
-            
-            self.worker_compress_start_event = torch.cuda.Event(enable_timing=True, blocking=False)
-            self.server_compress_start_event = torch.cuda.Event(enable_timing=True, blocking=False)
-            self.worker_compress_end_event = torch.cuda.Event(enable_timing=True, blocking=False)
-            self.server_compress_end_event = torch.cuda.Event(enable_timing=True, blocking=False)
+            self.sync_gradients_start_event = torch.cuda.Event(
+                enable_timing=True, blocking=False)
+            self.optimizer_step_start_event = torch.cuda.Event(
+                enable_timing=True, blocking=False)
+
+            self.gather_start_event = torch.cuda.Event(enable_timing=True,
+                                                       blocking=False)
+            self.sync_start_event = torch.cuda.Event(enable_timing=True,
+                                                     blocking=False)
+            self.gather_end_event = torch.cuda.Event(enable_timing=True,
+                                                     blocking=False)
+            self.sync_end_event = torch.cuda.Event(enable_timing=True,
+                                                   blocking=False)
+
+            self.worker_compress_start_event = torch.cuda.Event(
+                enable_timing=True, blocking=False)
+            self.server_compress_start_event = torch.cuda.Event(
+                enable_timing=True, blocking=False)
+            self.worker_compress_end_event = torch.cuda.Event(
+                enable_timing=True, blocking=False)
+            self.server_compress_end_event = torch.cuda.Event(
+                enable_timing=True, blocking=False)
 
     def _compute_total_para_num(self):
         total_count = 0
@@ -196,8 +233,9 @@ class AFreezeDP:
 
     def profile_mark_optimizer_step_start(self):
         if self.enable_tidy_profiling:
-            self.torch_optim_comp_stream.record_event(self.optimizer_step_start_event)
-            
+            self.torch_optim_comp_stream.record_event(
+                self.optimizer_step_start_event)
+
     def allreduce_parameters(self):
         self._local_parameters_backup = [
             p.data.clone() for p in self.module.parameters()
@@ -205,7 +243,8 @@ class AFreezeDP:
         torch.cuda.synchronize()
         self.dp_comm.barrier()
         with torch.cuda.stream(self.dp_comm_stream):
-            cupy_dp_stream = cupy.cuda.ExternalStream(self.dp_comm_stream.cuda_stream)
+            cupy_dp_stream = cupy.cuda.ExternalStream(
+                self.dp_comm_stream.cuda_stream)
             # self.dp_comm_stream.wait_event(self.backward_ready_event)
             for name, para in self.module.named_parameters():
                 # self.profile_mark_allreduce_start(name)
@@ -219,15 +258,17 @@ class AFreezeDP:
     def rollback_parameters(self):
         if not hasattr(self, '_local_parameters_backup'):
             return
-        
-        for p, p_local in zip(self.module.parameters(), self._local_parameters_backup):
+
+        for p, p_local in zip(self.module.parameters(),
+                              self._local_parameters_backup):
             p.data[:] = p_local.data
-            
+
         del self._local_parameters_backup
-            
+
     def _sync_gradients(self):
         with torch.cuda.stream(self.dp_comm_stream):
-            cupy_dp_stream = cupy.cuda.ExternalStream(self.dp_comm_stream.cuda_stream)
+            cupy_dp_stream = cupy.cuda.ExternalStream(
+                self.dp_comm_stream.cuda_stream)
             self.dp_comm_stream.wait_event(self.backward_ready_event)
             self.profile_mark_sync_grad_start()
             # step_update_exp_avg(self.optimizer)
@@ -236,71 +277,131 @@ class AFreezeDP:
                 self.dp_comm.all_reduce(para.grad, stream=cupy_dp_stream)
             self.profile_mark_allreduce_end()
             self.dp_comm_stream.record_event(self.sync_gradients_ready_event)
-            
+
     def optimizer_step(self):
         with torch.cuda.stream(self.torch_optim_comp_stream):
-            self.torch_optim_comp_stream.wait_event(self.sync_gradients_ready_event)
+            self.torch_optim_comp_stream.wait_event(
+                self.sync_gradients_ready_event)
             self.profile_mark_optimizer_step_start()
             step_update(self.optimizer, dp_optimizer=self)
-            self.torch_optim_comp_stream.record_event(self.optimizer_step_ready_event)
+            self.torch_optim_comp_stream.record_event(
+                self.optimizer_step_ready_event)
 
     def set_time_stamp(self, init_time_stamp, init_event):
         self.init_event = init_event
         self.init_time_stamp = init_time_stamp
 
     def get_ts(self, event):
-        return self.init_time_stamp + self.init_event.elapsed_time(event) * 1e+3
+        return self.init_time_stamp + self.init_event.elapsed_time(
+            event) * 1e+3
 
     def profiling_data_parallel(self, init_time_stamp, init_event):
         self.set_time_stamp(init_time_stamp, init_event)
         profiling_log = []
 
         # assert self.flatten
-        allreduce_slot = self.sync_gradients_start_event.elapsed_time(self.sync_gradients_ready_event)*1e+3
-        allreduce_log = {"name": "opt_shardedPS_sync", "ph": "X", "pid": self.global_rank, "tid": "7. optimizer-comm",
-                         "ts": self.get_ts(self.sync_gradients_start_event),
-                         "dur": allreduce_slot, "cname": "cq_build_passed",
-                         "args": {'para': 'flattened_grad', 'size': self.flatten_para.grad.numel()}}
+        allreduce_slot = self.sync_gradients_start_event.elapsed_time(
+            self.sync_gradients_ready_event) * 1e+3
+        allreduce_log = {
+            "name": "opt_shardedPS_sync",
+            "ph": "X",
+            "pid": self.global_rank,
+            "tid": "7. optimizer-comm",
+            "ts": self.get_ts(self.sync_gradients_start_event),
+            "dur": allreduce_slot,
+            "cname": "cq_build_passed",
+            "args": {
+                'para': 'flattened_grad',
+                'size': self.flatten_para.grad.numel()
+            }
+        }
         # print(allreduce_log)
         profiling_log.append(allreduce_log)
 
-        optimizer_slot = self.optimizer_step_start_event.elapsed_time(self.optimizer_step_ready_event) * 1e+3
-        optimizer_log = {"name": "opt_comp", "ph": "X", "pid": self.global_rank, "tid": "8. optimizer-comp",
-                         "ts": self.get_ts(self.optimizer_step_start_event), "dur": optimizer_slot, "cname": "bad"}
+        optimizer_slot = self.optimizer_step_start_event.elapsed_time(
+            self.optimizer_step_ready_event) * 1e+3
+        optimizer_log = {
+            "name": "opt_comp",
+            "ph": "X",
+            "pid": self.global_rank,
+            "tid": "8. optimizer-comp",
+            "ts": self.get_ts(self.optimizer_step_start_event),
+            "dur": optimizer_slot,
+            "cname": "bad"
+        }
         # print(optimizer_log)
         profiling_log.append(optimizer_log)
-        
-        
-        allreduce_slot = self.gather_start_event.elapsed_time(self.gather_end_event)*1e+3
-        allreduce_log = {"name": "gather grads", "ph": "X", "pid": self.global_rank, "tid": "9. optimizer-comm",
-                         "ts": self.get_ts(self.gather_start_event),
-                         "dur": allreduce_slot, "cname": "cq_build_passed",
-                         "args": {'para': 'flattened_grad', 'size': self.flatten_para.grad.numel()}}
+
+        allreduce_slot = self.gather_start_event.elapsed_time(
+            self.gather_end_event) * 1e+3
+        allreduce_log = {
+            "name": "gather grads",
+            "ph": "X",
+            "pid": self.global_rank,
+            "tid": "9. optimizer-comm",
+            "ts": self.get_ts(self.gather_start_event),
+            "dur": allreduce_slot,
+            "cname": "cq_build_passed",
+            "args": {
+                'para': 'flattened_grad',
+                'size': self.flatten_para.grad.numel()
+            }
+        }
         # print(allreduce_log)
         profiling_log.append(allreduce_log)
-        
-        allreduce_slot = self.sync_start_event.elapsed_time(self.sync_end_event)*1e+3
-        allreduce_log = {"name": "distribute grads", "ph": "X", "pid": self.global_rank, "tid": "10. optimizer-comm",
-                         "ts": self.get_ts(self.sync_start_event),
-                         "dur": allreduce_slot, "cname": "cq_build_passed",
-                         "args": {'para': 'flattened_grad', 'size': self.flatten_para.grad.numel()}}
+
+        allreduce_slot = self.sync_start_event.elapsed_time(
+            self.sync_end_event) * 1e+3
+        allreduce_log = {
+            "name": "distribute grads",
+            "ph": "X",
+            "pid": self.global_rank,
+            "tid": "10. optimizer-comm",
+            "ts": self.get_ts(self.sync_start_event),
+            "dur": allreduce_slot,
+            "cname": "cq_build_passed",
+            "args": {
+                'para': 'flattened_grad',
+                'size': self.flatten_para.grad.numel()
+            }
+        }
         # print(allreduce_log)
         profiling_log.append(allreduce_log)
-        
-        allreduce_slot = self.worker_compress_start_event.elapsed_time(self.worker_compress_end_event)*1e+3
-        allreduce_log = {"name": "worker compress", "ph": "X", "pid": self.global_rank, "tid": "11. optimizer-comm",
-                         "ts": self.get_ts(self.worker_compress_start_event),
-                         "dur": allreduce_slot, "cname": "cq_build_passed",
-                         "args": {'para': 'flattened_grad', 'size': self.flatten_para.grad.numel()}}
+
+        allreduce_slot = self.worker_compress_start_event.elapsed_time(
+            self.worker_compress_end_event) * 1e+3
+        allreduce_log = {
+            "name": "worker compress",
+            "ph": "X",
+            "pid": self.global_rank,
+            "tid": "11. optimizer-comm",
+            "ts": self.get_ts(self.worker_compress_start_event),
+            "dur": allreduce_slot,
+            "cname": "cq_build_passed",
+            "args": {
+                'para': 'flattened_grad',
+                'size': self.flatten_para.grad.numel()
+            }
+        }
         # print(allreduce_log)
         profiling_log.append(allreduce_log)
-        
-        allreduce_slot = self.server_compress_start_event.elapsed_time(self.server_compress_end_event)*1e+3
-        allreduce_log = {"name": "server compress", "ph": "X", "pid": self.global_rank, "tid": "12. optimizer-comm",
-                         "ts": self.get_ts(self.server_compress_start_event),
-                         "dur": allreduce_slot, "cname": "cq_build_passed",
-                         "args": {'para': 'flattened_grad', 'size': self.flatten_para.grad.numel()}}
+
+        allreduce_slot = self.server_compress_start_event.elapsed_time(
+            self.server_compress_end_event) * 1e+3
+        allreduce_log = {
+            "name": "server compress",
+            "ph": "X",
+            "pid": self.global_rank,
+            "tid": "12. optimizer-comm",
+            "ts": self.get_ts(self.server_compress_start_event),
+            "dur": allreduce_slot,
+            "cname": "cq_build_passed",
+            "args": {
+                'para': 'flattened_grad',
+                'size': self.flatten_para.grad.numel()
+            }
+        }
         # print(allreduce_log)
         profiling_log.append(allreduce_log)
-        
+
         return profiling_log

@@ -15,8 +15,10 @@ def create_emtpy_gptj(config):
     import torch.nn as nn
 
     _reset_parameters_linear = nn.Linear.reset_parameters
+
     def dummy(*args, **kargs):
         pass
+
     nn.Linear.reset_parameters = dummy
 
     # 1. disable init for faster initialization
@@ -28,7 +30,11 @@ def create_emtpy_gptj(config):
 
     return model
 
-def load_decentralized_checkpoint(model, checkpoint_path, n_stages=2, n_layer_per_stage=14):
+
+def load_decentralized_checkpoint(model,
+                                  checkpoint_path,
+                                  n_stages=2,
+                                  n_layer_per_stage=14):
     input_path = checkpoint_path
 
     assert n_stages * n_layer_per_stage >= len(model.transformer.h)
@@ -38,15 +44,23 @@ def load_decentralized_checkpoint(model, checkpoint_path, n_stages=2, n_layer_pe
 
         print(f'loading stage {i}')
 
-        checkpoint = torch.load(os.path.join(input_path, f'prank_{i}_checkpoint.pt'), map_location=torch.device("cpu"))
+        checkpoint = torch.load(os.path.join(input_path,
+                                             f'prank_{i}_checkpoint.pt'),
+                                map_location=torch.device("cpu"))
 
         if i == 0:
-            _tmp = {k[len(f"{0}."):]:v for k,v in checkpoint.items() if k.startswith(f"0.")}
+            _tmp = {
+                k[len(f"{0}."):]: v
+                for k, v in checkpoint.items() if k.startswith(f"0.")
+            }
             # torch.save(_tmp, os.path.join(output_path, f'pytorch_embs.pt'))
             model.transformer.wte.weight.data[:] = _tmp['wte.weight']
 
             for j in range(n_layer_per_stage):
-                _tmp = {k[len(f"{j+1}."):]:v for k,v in checkpoint.items() if k.startswith(f"{j+1}.")}
+                _tmp = {
+                    k[len(f"{j+1}."):]: v
+                    for k, v in checkpoint.items() if k.startswith(f"{j+1}.")
+                }
                 if len(_tmp) == 0:
                     break
                 # torch.save(_tmp, os.path.join(output_path, f'pytorch_{j}.pt'))
@@ -54,13 +68,21 @@ def load_decentralized_checkpoint(model, checkpoint_path, n_stages=2, n_layer_pe
 
         elif i == n_stages - 1:
             for j in range(n_layer_per_stage):
-                _tmp = {k[len(f"{j}."):]:v for k,v in checkpoint.items() if k.startswith(f"{j}.")}
+                _tmp = {
+                    k[len(f"{j}."):]: v
+                    for k, v in checkpoint.items() if k.startswith(f"{j}.")
+                }
                 if len(_tmp) == 0:
                     break
                 # torch.save(_tmp, os.path.join(output_path, f'pytorch_{i*n_layer_per_stage + j}.pt'))
-                model.transformer.h[i*n_layer_per_stage + j].load_state_dict(_tmp)
+                model.transformer.h[i * n_layer_per_stage +
+                                    j].load_state_dict(_tmp)
 
-            _tmp = {k[len(f"{n_layer_per_stage}."):]:v for k,v in checkpoint.items() if k.startswith(f"{n_layer_per_stage}.")}
+            _tmp = {
+                k[len(f"{n_layer_per_stage}."):]: v
+                for k, v in checkpoint.items()
+                if k.startswith(f"{n_layer_per_stage}.")
+            }
             if len(_tmp) == 0:
                 break
             # torch.save(_tmp, os.path.join(output_path, f'pytorch_lm_head.pt'))
@@ -72,13 +94,18 @@ def load_decentralized_checkpoint(model, checkpoint_path, n_stages=2, n_layer_pe
 
         else:
             for j in range(n_layer_per_stage):
-                _tmp = {k[len(f"{j}."):]:v for k,v in checkpoint.items() if k.startswith(f"{j}.")}
+                _tmp = {
+                    k[len(f"{j}."):]: v
+                    for k, v in checkpoint.items() if k.startswith(f"{j}.")
+                }
                 if len(_tmp) == 0:
                     break
                 # torch.save(_tmp, os.path.join(output_path, f'pytorch_{i*n_layer_per_stage + j}.pt'))
-                model.transformer.h[i*n_layer_per_stage + j].load_state_dict(_tmp)
+                model.transformer.h[i * n_layer_per_stage +
+                                    j].load_state_dict(_tmp)
 
     return model
+
 
 if __name__ == '__main__':
     import os
@@ -92,7 +119,10 @@ if __name__ == '__main__':
     # get all checkpoints
     checkpoints = os.environ.get("TOTAL_STEPS")
     finetune_path = os.path.join("model_checkpoints", finetune_id)
-    load_decentralized_checkpoint(model, finetune_path, n_stages=2, n_layer_per_stage=14)
+    load_decentralized_checkpoint(model,
+                                  finetune_path,
+                                  n_stages=2,
+                                  n_layer_per_stage=14)
 
     max_memory = get_balanced_memory(
         model,
@@ -102,16 +132,15 @@ if __name__ == '__main__':
         low_zero=False,
     )
 
-    device_map = infer_auto_device_map(
-        model,
-        max_memory=max_memory,
-        no_split_module_classes=["GPTJBlock"],
-        dtype='float16'
-    )
+    device_map = infer_auto_device_map(model,
+                                       max_memory=max_memory,
+                                       no_split_module_classes=["GPTJBlock"],
+                                       dtype='float16')
 
     model = dispatch_model(model, device_map=device_map)
 
-    ret = model.generate(**tokenizer('you are not', return_tensors='pt'), max_new_tokens=4)
+    ret = model.generate(**tokenizer('you are not', return_tensors='pt'),
+                         max_new_tokens=4)
     print(ret)
     print(tokenizer.batch_decode(ret))
     """

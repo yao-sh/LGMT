@@ -1,19 +1,22 @@
 """QQP dataset."""
 import torch
-from .data_utils import clean_text
-from .abstract_dataset import GLUEAbstractDataset
 
+from .abstract_dataset import GLUEAbstractDataset
+from .data_utils import clean_text
 
 LABELS = [0, 1]
 
 
 class QQPDataset(GLUEAbstractDataset):
 
-    def __init__(self, name, datapaths, tokenizer, max_seq_length,
+    def __init__(self,
+                 name,
+                 datapaths,
+                 tokenizer,
+                 max_seq_length,
                  test_label=0):
         self.test_label = test_label
-        super().__init__('QQP', name, datapaths,
-                         tokenizer, max_seq_length)
+        super().__init__('QQP', name, datapaths, tokenizer, max_seq_length)
 
     def process_samples_from_single_path(self, filename):
         """"Implement abstract method."""
@@ -31,15 +34,14 @@ class QQPDataset(GLUEAbstractDataset):
                     if len(row) == 3:
                         is_test = True
                         print('   reading {}, {}, and {} columns and '
-                                     'setting labels to {}'.format(
-                                         row[0].strip(), row[1].strip(),
-                                         row[2].strip(), self.test_label))
+                              'setting labels to {}'.format(
+                                  row[0].strip(), row[1].strip(),
+                                  row[2].strip(), self.test_label))
                     else:
                         assert len(row) == 6
                         print('    reading {}, {}, {}, and {} columns'
-                                     ' ...'.format(
-                                         row[0].strip(), row[3].strip(),
-                                         row[4].strip(), row[5].strip()))
+                              ' ...'.format(row[0].strip(), row[3].strip(),
+                                            row[4].strip(), row[5].strip()))
                     continue
 
                 if is_test:
@@ -57,21 +59,26 @@ class QQPDataset(GLUEAbstractDataset):
                         text_b = clean_text(row[4].strip())
                         label = int(row[5].strip())
                     else:
-                        print('***WARNING*** index error, ' 'skipping: {}'.format(row))
+                        print('***WARNING*** index error, '
+                              'skipping: {}'.format(row))
                         continue
                     if len(text_a) == 0:
-                        print('***WARNING*** zero length a, ' 'skipping: {}'.format(row))
+                        print('***WARNING*** zero length a, '
+                              'skipping: {}'.format(row))
                         continue
                     if len(text_b) == 0:
-                        print('***WARNING*** zero length b, ' 'skipping: {}'.format(row))
+                        print('***WARNING*** zero length b, '
+                              'skipping: {}'.format(row))
                         continue
                 assert label in LABELS
                 assert uid >= 0
 
-                sample = {'uid': uid,
-                          'text_a': text_a,
-                          'text_b': text_b,
-                          'label': label}
+                sample = {
+                    'uid': uid,
+                    'text_a': text_a,
+                    'text_b': text_b,
+                    'label': label
+                }
                 total += 1
                 samples.append(sample)
 
@@ -83,7 +90,8 @@ class QQPDataset(GLUEAbstractDataset):
 
 
 def get_glue_qqp_train_data_loader(args, tokenizer, num_workers=0):
-    train_dataset = QQPDataset('training', args.train_data, tokenizer, args.seq_length)
+    train_dataset = QQPDataset('training', args.train_data, tokenizer,
+                               args.seq_length)
     train_sampler = torch.utils.data.RandomSampler(train_dataset)
     train_data_loader = torch.utils.data.DataLoader(train_dataset,
                                                     batch_size=args.batch_size,
@@ -97,14 +105,15 @@ def get_glue_qqp_train_data_loader(args, tokenizer, num_workers=0):
 
 
 def get_glue_qqp_test_data_loader(args, tokenizer, num_workers=0):
-    test_dataset = QQPDataset('testing', args.test_data, tokenizer, args.seq_length)
+    test_dataset = QQPDataset('testing', args.test_data, tokenizer,
+                              args.seq_length)
     test_sampler = torch.utils.data.RandomSampler(test_dataset)
     test_data_loader = torch.utils.data.DataLoader(test_dataset,
-                                                    batch_size=args.batch_size,
-                                                    sampler=test_sampler,
-                                                    shuffle=False,
-                                                    num_workers=num_workers,
-                                                    drop_last=True,
-                                                    pin_memory=True,
-                                                    collate_fn=None)
+                                                   batch_size=args.batch_size,
+                                                   sampler=test_sampler,
+                                                   shuffle=False,
+                                                   num_workers=num_workers,
+                                                   drop_last=True,
+                                                   pin_memory=True,
+                                                   collate_fn=None)
     return test_data_loader
