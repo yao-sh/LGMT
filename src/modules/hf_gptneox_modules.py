@@ -14,7 +14,6 @@ from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXLayer as _GPTN
 from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXModel as _GPTNeoXModel
 from transformers.models.gpt_neox.configuration_gpt_neox import GPTNeoXConfig as GPTConfig
 
-
 def rotate_half(x):
     """Rotates half the hidden dims of the input."""
     x1 = x[..., :x.shape[-1] // 2]
@@ -224,10 +223,24 @@ class GPTBlock(_GPTNeoXBlock):
         def block_forward(x: torch.Tensor, attention_mask: torch.Tensor,
                           prefix_masks: torch.Tensor) -> torch.Tensor:
             res = x
-            ln_out = self.input_layernorm(x)
-            x_a = self.attention(ln_out, attention_mask=attention_mask)[0]
-            x_m = self.mlp(self.post_attention_layernorm(x))
-            return res + x_a + x_m
+            """
+            To be compatible with https://github.com/huggingface/transformers/blob/a0ae2310ec46a2c592950babc85cf02e325bf6a7/src/transformers/models/gpt_neox/modeling_gpt_neox.py#L336-L347
+            """
+            layer_norm_out = self.input_layernorm(x)
+            attention_layer_output = self.attention(layer_norm_out, attention_mask=attention_mask)
+            attn_output = attention_layer_output[0]
+            # outputs = attention_layer_output[1:]
+
+            if self.config.use_parallel_residual:
+                # x = x + attn(ln1(x)) + mlp(ln2(x))
+                # x_a = attn_output, 
+                mlp_out = self.mlp(self.post_attention_layernorm(x))
+                return res + attn_output + mlp_out
+            else:
+                # x = x + attn(ln1(x)) 
+                # x = x + mlp(ln2(x))
+                mlp_out = self.mlp(self.post_attention_layernorm(attn_output))
+                return res + attn_output, mlp_out
 
         self.block_forward = block_forward
 
